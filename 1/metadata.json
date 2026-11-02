@@ -1,0 +1,6 @@
+{
+  "name": "English Writing Recovery",
+  "description": "Personal daily deliberate practice environment for English writing fluency, Franklin method drills, and grammatical mastery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

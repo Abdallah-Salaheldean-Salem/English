@@ -1,0 +1,6 @@
+{
+  "name": "Unaided — English Writing Recovery Studio",
+  "description": "Deliberate practice studio for recovering fluent, confident English writing unaided across 4 structured phases with strict error logging, daily drills, and habit tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

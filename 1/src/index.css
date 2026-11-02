@@ -1,0 +1,100 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-serif: 'Source Serif 4', Georgia, serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+  }
+}
+
+/* Theme definitions */
+:root[data-theme="monochrome"], :root {
+  --bg-app: #fcfcfc;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f4f4f5;
+  --border-subtle: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --text-main: #09090b;
+  --text-muted: #71717a;
+  --text-subtle: #a1a1aa;
+  --accent: #18181b;
+  --accent-text: #ffffff;
+  --accent-hover: #27272a;
+  --accent-glow: rgba(0, 0, 0, 0.05);
+  --selection: #e4e4e7;
+  --tag-bg: #f4f4f5;
+}
+
+:root[data-theme="monochrome"].dark, :root.dark:not([data-theme="amber"]):not([data-theme="editorial"]) {
+  --bg-app: #09090b;
+  --bg-surface: #121214;
+  --bg-elevated: #18181b;
+  --border-subtle: #27272a;
+  --border-strong: #3f3f46;
+  --text-main: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --text-subtle: #71717a;
+  --accent: #fafafa;
+  --accent-text: #09090b;
+  --accent-hover: #e4e4e7;
+  --accent-glow: rgba(255, 255, 255, 0.08);
+  --selection: #27272a;
+  --tag-bg: #18181b;
+}
+
+:root[data-theme="amber"] {
+  --bg-app: #08090a;
+  --bg-surface: #0f1115;
+  --bg-elevated: #15181f;
+  --border-subtle: #20242e;
+  --border-strong: #2c3240;
+  --text-main: #f5f6f8;
+  --text-muted: #9aa1b2;
+  --text-subtle: #656c7d;
+  --accent: #f59e0b;
+  --accent-text: #08090a;
+  --accent-hover: #d97706;
+  --accent-glow: rgba(245, 158, 11, 0.15);
+  --selection: #2d2618;
+  --tag-bg: #1c1810;
+}
+
+:root[data-theme="editorial"] {
+  --bg-app: #fbf9f4;
+  --bg-surface: #f4f0e6;
+  --bg-elevated: #eae4d5;
+  --border-subtle: #ded6c3;
+  --border-strong: #c8bd9f;
+  --text-main: #2b2622;
+  --text-muted: #6e6459;
+  --text-subtle: #988c7f;
+  --accent: #8b3a2b;
+  --accent-text: #fbf9f4;
+  --accent-hover: #722f23;
+  --accent-glow: rgba(139, 58, 43, 0.12);
+  --selection: #e9dec9;
+  --tag-bg: #ebe5d7;
+}
+
+/* Custom scrollbars and typography helpers */
+.font-editorial-serif {
+  font-family: var(--font-serif);
+}
+
+.font-editorial-sans {
+  font-family: var(--font-sans);
+}
+
+.font-editorial-mono {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background-color: var(--selection);
+}
