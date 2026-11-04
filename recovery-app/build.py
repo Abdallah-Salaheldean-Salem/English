@@ -40,5 +40,34 @@ def main():
     dout.write_text(desk, encoding='utf-8')
     print('wrote %s (%d KB)' % (dout.relative_to(ROOT), len(desk.encode()) // 1024))
 
+    # Phone app (installable PWA, hosted as static files, e.g. GitHub Pages): data in IndexedDB on the phone,
+    # Claude via the person's own API key, offline through the service worker. Relative paths, so any sub-path works.
+    import hashlib, shutil
+    bridge = ''.join(part(n) for n in ['pwa_bridge.js', 'desktop_shim.js'])
+    phead = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+             '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">'
+             '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\' \'unsafe-inline\'; '
+             'style-src \'unsafe-inline\' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src \'self\' data:; '
+             'connect-src \'self\' https://api.anthropic.com https://fonts.googleapis.com https://fonts.gstatic.com">'
+             '<link rel="manifest" href="manifest.webmanifest">'
+             '<link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">'
+             '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">'
+             '<meta name="apple-mobile-web-app-title" content="Writing"><meta name="apple-mobile-web-app-status-bar-style" content="default">'
+             '<meta name="theme-color" content="#edf0f3" media="(prefers-color-scheme: light)">'
+             '<meta name="theme-color" content="#0f141b" media="(prefers-color-scheme: dark)">'
+             '<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}'
+             'html,body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent}</style></head><body>')
+    phone = phead + page.replace('<script>\n/* ==== src/content.js', '<script>\n' + bridge + '\n/* ==== src/content.js', 1) + '</body></html>'
+    pdir = ROOT / 'pwa'
+    if pdir.exists(): shutil.rmtree(pdir)
+    pdir.mkdir()
+    (pdir / 'index.html').write_text(phone, encoding='utf-8')
+    version = hashlib.sha256(phone.encode()).hexdigest()[:12]
+    for f in (SRC / 'pwa').iterdir():
+        if f.name == 'sw.js': (pdir / 'sw.js').write_text(f.read_text(encoding='utf-8').replace('__VERSION__', version), encoding='utf-8')
+        else: shutil.copy(f, pdir / f.name)
+    (pdir / '.nojekyll').write_text('')
+    print('wrote pwa/ (%d KB page, version %s)' % (len(phone.encode()) // 1024, version))
+
 if __name__ == '__main__':
     main()

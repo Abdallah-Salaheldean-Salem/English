@@ -5,13 +5,31 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+const FENCE = '`'.repeat(3);
+/* What the fake Claude says: marks for a review prompt, a verdict for a repair prompt. */
+function fakeClaude(prompt) {
+  if (prompt.startsWith('A learner wrote')) return prompt.includes('with: "I go"') ? '{"ok": true, "hint": ""}' : 'Here: {"ok": false, "hint": "Who is doing the action?"}';
+  const a = prompt.indexOf('Draft:\n"""\n') + 11, b = prompt.indexOf('\n"""', a);
+  const q = prompt.slice(a, b).split(' ').slice(0, 2).join(' ');
+  return 'Marks:\n' + FENCE + 'json\n' + JSON.stringify([{ quote: q, type: 'Subject-verb agreement', hint: 'Who is the subject?', note: 'The verb agrees with its subject.' }]) + '\n' + FENCE;
+}
+/* Serves pwa/ as GitHub Pages would. */
+function startStatic(port, dir) {
+  const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
+  const server = http.createServer((req, res) => {
+    let p = decodeURIComponent(new URL(req.url, 'http://x').pathname); if (p.endsWith('/')) p += 'index.html';
+    const f = path.join(dir, path.normalize(p).replace(/^([\\/]\.\.)+/, ''));
+    fs.readFile(f, (err, data) => { if (err) { res.writeHead(404); return res.end('Not found'); } res.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); res.end(data); });
+  });
+  return new Promise(r => server.listen(port, '127.0.0.1', () => r({ server, url: 'http://localhost:' + port + '/' })));
+}
 function start(port, token) {
   const page = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'app.html'));
   const docs = {}; let key = null; const saved = [];
   const body = req => new Promise(r => { let b = ''; req.setEncoding('utf8'); req.on('data', d => { b += d; }); req.on('end', () => r(b)); });
   const reply = (res, status, type, text) => { res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' }); res.end(text); };
-  const FENCE = '`'.repeat(3);
-  const claude = prompt => {
+  const claude = fakeClaude;
+  const unused = prompt => {
     if (prompt.startsWith('A learner wrote')) return prompt.includes('with: "I go"') ? '{"ok": true, "hint": ""}' : 'Here: {"ok": false, "hint": "Who is doing the action?"}';
     const a = prompt.indexOf('Draft:\n"""\n') + 11, b = prompt.indexOf('\n"""', a);
     const q = prompt.slice(a, b).split(' ').slice(0, 2).join(' ');
@@ -40,4 +58,4 @@ function start(port, token) {
   });
   return new Promise(r => server.listen(port, '127.0.0.1', () => r({ server, docs, saved, url: 'http://localhost:' + port + '/' + token + '/' })));
 }
-module.exports = { start };
+module.exports = { start, startStatic, fakeClaude };

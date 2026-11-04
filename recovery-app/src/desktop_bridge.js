@@ -11,6 +11,7 @@
     return r;
   };
   window.desktop = {
+    kind: 'pc',
     readAll: async () => (await call('all')).json(),
     write: (p, body) => call('write?p=' + encodeURIComponent(p), { method: 'POST', body: JSON.stringify(body) }),
     remove: p => call('remove?p=' + encodeURIComponent(p), { method: 'POST' }),

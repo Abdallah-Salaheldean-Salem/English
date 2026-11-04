@@ -17,6 +17,8 @@ Version 2, 4 November 2026. Changes from v1 are marked **(v2)**.
 | `app_events.js` | Routing, import and export, boot. |
 | `index.html`, `style.css` **(v2)** | Page shell and styles. Light and dark themes. Phone layout below 900 px. |
 | `desktop_bridge.js`, `desktop_shim.js` **(v2)** | Desktop build only: the local API and its mapping onto `window.claude`. |
+| `pwa_bridge.js`, `pwa/` **(v2)** | Phone app build only: IndexedDB storage, direct API calls, service worker, manifest, icons. |
+| `tools/make_icons.py` **(v2)** | Draws every icon size (Pillow). |
 | `test/e2e.js` | Headless walkthrough of all flows, twice: browser-only mode, then a mocked Claude viewer (db and Claude). Uses Playwright's fake clock to run real 15-minute sprints. |
 
 ## Runtime capabilities **(v2)**
@@ -65,10 +67,23 @@ Keep `logic.js`, `migrate.js` and the contracts unchanged. Replace `store.js` wi
 - `src/desktop_bridge.js` defines `window.desktop` over that API; `src/desktop_shim.js` maps it onto `window.claude.use('db' | 'sample' | 'downloads')`, so the app code is the same as the artifact's. `build.py` writes `desktop/app.html` with both, a strict CSP (`connect-src 'self'`) and the icon.
 - `test/launcher_mock.js` serves the same API in memory; `test/e2e.js` runs every flow against it as its third mode.
 
+## Phone app (installable PWA) **(v2)**
+`build.py` writes `pwa/`: `index.html`, `manifest.webmanifest`, `sw.js` (cache name = hash of the page), icons and `.nojekyll`. Hosted as static files on GitHub Pages from the `gh-pages` branch; all paths are relative.
+- `src/pwa_bridge.js` defines `window.desktop` (kind `phone`) on the phone: documents in IndexedDB database `ewr` (store `docs`, key = document path), the API key in store `secrets`, `navigator.storage.persist()` requested. `desktop_shim.js` maps it onto `window.claude`, as on the PC.
+- Claude: direct `fetch` to `api.anthropic.com/v1/messages` with the `anthropic-dangerous-direct-browser-access` header and the person's own key. The CSP allows only that host besides fonts.
+- Backups: the share sheet where the phone offers one, otherwise a download.
+- Service worker: page network-first (updates arrive on the next open with signal), everything else cache-first, fonts cached as they load. Opens offline.
+- The phone's data is separate from the PC exe and from the Claude artifact; Export and Import move it.
+- Security note: GitHub Pages serves every Pages site of one account from the same origin, so another Pages site on the same account could read this app's storage, the key included. Keep only trusted sites on that account's Pages, or remove the key when not needed.
+
+### Touch and phone layout (all builds)
+Tap targets of at least 44 px on touch screens, 16 px form text (no zoom on focus in iPhone Safari), hover styles only where a real pointer exists, the session screen sized to the visible viewport (`--vvh`) so its footer sits above the keyboard, the tab bar hidden while typing and restored 350 ms after focus leaves (so a tap never lands on a shifted layout), and the error log as cards below 600 px.
+
 ## Build and test
 ```
 python3 build.py          # writes dist/english-writing-recovery.html
 node test/test_logic.js   # 21 groups: dates, queue, gates, pieces, error log, review validation, import
-node test/e2e.js          # every flow: browser-only, mocked Claude viewer, and the desktop launcher API; phone width, both themes
+node test/e2e.js          # every flow in four modes (browser-only, Claude viewer, PC launcher, phone app at iPhone size), plus phone app install and offline open
+python3 tools/make_icons.py   # only when the icon changes
 desktop\build.cmd         # on Windows: compiles desktop\EnglishWritingRecovery.exe
 ```

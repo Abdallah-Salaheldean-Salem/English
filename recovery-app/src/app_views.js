@@ -31,7 +31,7 @@ function drawNav() {
 }
 function drawStatus() {
   const el = document.getElementById('status');
-  const where = Store.mode === 'db' ? (window.desktop ? 'Saved on this computer' : 'Saved to your private app data') : Store.mode === 'local' ? 'Saved in this browser only' : '';
+  const where = Store.mode === 'db' ? (window.desktop ? (window.desktop.kind === 'phone' ? 'Saved on this phone' : 'Saved on this computer') : 'Saved to your private app data') : Store.mode === 'local' ? 'Saved in this browser only' : '';
   el.replaceChildren(h('span', null, where), Store.status ? h('span', { class: 'warn' }, Store.status) : '', App.notice ? h('span', { class: 'warn' }, App.notice) : '');
   if (App.notice && !App._noticeT) App._noticeT = setTimeout(() => { App.notice = ''; App._noticeT = 0; drawStatus(); }, 6000);
 }
@@ -281,7 +281,7 @@ function viewWriting() {
   const list = h('ul', { class: 'items' }, items.map(it => {
     const d = it.doc, ms = d.marks || [];
     const label = it.coll === 'pieces' ? (d.title || 'Untitled piece') : KIND_LABEL[d.kind];
-    return h('li', null, h('button', { class: 'item' + (sel && sel.id === d.id ? ' on' : ''), onclick: () => { App.sel = { coll: it.coll, id: d.id }; render(); } },
+    return h('li', null, h('button', { class: 'item' + (sel && sel.id === d.id ? ' on' : ''), onclick: () => { App.sel = { coll: it.coll, id: d.id }; render(); if (matchMedia('(max-width: 900px)').matches) { const el = document.querySelector('.detail'); if (el) el.scrollIntoView({ block: 'start' }); } } },
       h('span', { class: 'it-t' }, label), h('span', { class: 'it-m' }, fmtDate(it.t) + ' · ' + plural(d.words || 0, 'word')),
       h('span', { class: 'it-s' }, it.coll === 'pieces' ? h('span', { class: 'pill' }, d.status) : '', ms.length ? h('span', { class: 'pill ' + (ms.every(m => m.fixed) ? 'good' : 'red') }, ms.filter(m => m.fixed).length + '/' + ms.length + ' fixed') : '',
         d.reviewedAt ? h('span', { class: 'pill' }, 'marked') : '')));
@@ -352,10 +352,10 @@ function viewErrors() {
       Store.put('errors', row.id, row);
     } }, 'Add'))),
     h('div', { class: 'scroll' }, h('table', { class: 'tbl errors' }, h('thead', null, h('tr', null, ['Error type', 'What I wrote', 'Correct form', 'Times', 'Last', 'Found by', ''].map(x => h('th', null, x)))),
-      h('tbody', null, rows.map(r => h('tr', null, h('td', null, r.type), h('td', { class: 'wrote' }, r.wrote),
-        h('td', null, h('input', { type: 'text', value: r.correct, 'aria-label': 'Correct form for ' + r.wrote, onchange: e => Store.put('errors', r.id, Object.assign(clone(r), { correct: e.target.value.trim() })) })),
-        h('td', { class: 'n' }, r.dates.length), h('td', null, fmtDate(r.dates[r.dates.length - 1])), h('td', null, r.by === 'plan' ? 'plan' : r.by === 'claude' ? 'Claude' : r.by === 'ai' ? 'old app' : 'you'),
-        h('td', null, h('button', { class: 'icon', 'aria-label': 'Delete row', onclick: () => Store.remove('errors', r.id) }, '×'))))))));
+      h('tbody', null, rows.map(r => h('tr', null, h('td', { class: 'ty' }, r.type), h('td', { class: 'wrote' }, r.wrote),
+        h('td', { class: 'cor' }, h('input', { type: 'text', value: r.correct, 'aria-label': 'Correct form for ' + r.wrote, onchange: e => Store.put('errors', r.id, Object.assign(clone(r), { correct: e.target.value.trim() })) })),
+        h('td', { class: 'n' }, r.dates.length), h('td', { class: 'last' }, fmtDate(r.dates[r.dates.length - 1])), h('td', { class: 'by' }, r.by === 'plan' ? 'plan' : r.by === 'claude' ? 'Claude' : r.by === 'ai' ? 'old app' : 'you'),
+        h('td', { class: 'del' }, h('button', { class: 'icon', 'aria-label': 'Delete row', onclick: () => Store.remove('errors', r.id) }, '×'))))))));
 }
 
 /* ---------- Progress ---------- */
@@ -445,16 +445,18 @@ function desktopClaudeCard() {
   const key = h('input', { type: 'password', autocomplete: 'off', placeholder: 'sk-ant-\u2026', 'aria-label': 'Anthropic API key', id: 'apikey' });
   const out = h('p', { class: 'muted small' }, App.sample ? 'A key is saved. Reviews and repair checks go to Claude with it.' : 'No key saved. Reviews fall back to copy and paste.');
   const refresh = async () => { App.sample = await window.claude.use('sample'); render(); };
-  return card('', h('h3', null, 'Claude reviews on this computer'),
+  const phone = window.desktop.kind === 'phone';
+  return card('', h('h3', null, phone ? 'Claude reviews on this phone' : 'Claude reviews on this computer'),
     p(['Reviews use your own Anthropic API key, from ', h('a', { href: 'https://console.anthropic.com/settings/keys', target: '_blank', rel: 'noopener' }, 'console.anthropic.com'),
-      '. The key is encrypted with Windows\u2019 own protection and stays on this computer. Each review costs a few cents of API usage.'], 'small'),
+      phone ? '. The key is kept in this app\u2019s storage on this phone and is sent only to Anthropic. Each review costs a few cents of API usage.' : '. The key is encrypted with Windows\u2019 own protection and stays on this computer. Each review costs a few cents of API usage.'], 'small'),
     h('div', { class: 'markrow' }, key, h('button', { class: 'btn', onclick: async () => {
       const v = key.value.trim(); if (!/^sk-ant-/.test(v)) { out.textContent = 'That does not look like an Anthropic key (it starts with sk-ant-).'; return; }
       try { await window.desktop.setKey(v); key.value = ''; await refresh(); } catch (e) { out.textContent = 'The key could not be saved: ' + ((e && e.message) || e); }
     } }, 'Save key'), App.sample ? h('button', { class: 'btn quiet danger', onclick: async () => { await window.desktop.clearKey(); await refresh(); } }, 'Remove key') : ''), out);
 }
 function dataCard() {
-  const where = window.desktop ? 'Your data is saved on this computer, in your AppData folder. A dated copy is kept each day for the last 14 days. Backups you export go to your Documents folder.' : Store.mode === 'db' ? 'Your data is saved to this app’s private storage, readable only by you. It follows you to any device where you open this app in Claude.'
+  const where = window.desktop && window.desktop.kind === 'phone' ? 'Your data is saved on this phone, inside this app. It is not shared with the PC app or with Claude. Export a backup now and then; it is your copy if the phone is lost or the app is removed.'
+    : window.desktop ? 'Your data is saved on this computer, in your AppData folder. A dated copy is kept each day for the last 14 days. Backups you export go to your Documents folder.' : Store.mode === 'db' ? 'Your data is saved to this app’s private storage, readable only by you. It follows you to any device where you open this app in Claude.'
     : 'This page is running outside the Claude viewer, so your data is kept in this browser only. Export it regularly.';
   const file = h('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Backup file' });
   const paste = h('textarea', { class: 'sheet small', rows: 3, placeholder: 'Or paste the JSON here', 'aria-label': 'Pasted JSON' });
@@ -465,7 +467,7 @@ function dataCard() {
   };
   file.addEventListener('change', () => { const f = file.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => preview(String(r.result)); r.readAsText(f); });
   return card('', h('h3', null, 'Your data'), p(where, 'small'),
-    window.desktop ? h('div', { class: 'row' }, h('button', { class: 'btn quiet small', onclick: () => window.desktop.openDataFolder() }, 'Open the data folder')) : '',
+    window.desktop && window.desktop.kind === 'pc' ? h('div', { class: 'row' }, h('button', { class: 'btn quiet small', onclick: () => window.desktop.openDataFolder() }, 'Open the data folder')) : '',
     h('div', { class: 'row' }, App.downloads ? h('button', { class: 'btn', onclick: exportData }, 'Export a backup') : h('button', { class: 'btn', onclick: e => copyText(JSON.stringify(Store.dump()), e.currentTarget.nextSibling || e.currentTarget) }, 'Copy a backup'), h('span', { class: 'muted small' })),
     h('h3', null, 'Import'), p('Bring in an Export file from Recovery Studio or Unaided Studio, or a backup from this app. Anything already here is kept; nothing is added twice.', 'muted small'),
     file, paste, h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => preview(paste.value) }, 'Check it')), out);

@@ -50,7 +50,6 @@ p { margin: 0; }
 .phasedots i.past { background: var(--ink2); } .phasedots i.now { background: var(--blue); }
 #nav { display: flex; flex-direction: column; gap: 2px; }
 #nav a { padding: 8px 10px; border-radius: var(--r); color: var(--ink2); text-decoration: none; font-weight: 500; }
-#nav a:hover { background: var(--sheet); color: var(--ink); }
 #nav a.on { background: var(--sheet); color: var(--ink); box-shadow: inset 3px 0 0 var(--blue); }
 #view { padding-block: 36px 90px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); outline: none; }
 .page { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
@@ -81,15 +80,13 @@ p { margin: 0; }
 
 /* controls */
 .btn { font: 500 14px var(--f-ui); padding: 9px 16px; border-radius: var(--r); border: 1px solid var(--line); background: var(--sheet); color: var(--ink); cursor: pointer; white-space: nowrap; }
-.btn:hover { border-color: var(--ink2); }
 .btn.primary { background: var(--blue); border-color: var(--blue); color: var(--sheet); }
-.btn.primary:hover { filter: brightness(1.08); }
 .btn.big { padding: 12px 22px; font-size: 15px; }
 .btn.small { padding: 6px 11px; font-size: 13px; }
 .btn.quiet { border-color: transparent; background: transparent; color: var(--ink2); }
 .btn.danger { color: var(--red); }
 .icon { border: 0; background: transparent; color: var(--faint); cursor: pointer; font-size: 16px; padding: 2px 8px; border-radius: 4px; line-height: 1; }
-.icon:hover { color: var(--ink); background: var(--paper); } .icon:disabled { opacity: .3; cursor: default; }
+.icon:disabled { opacity: .3; cursor: default; }
 input[type=text], input[type=url], input[type=date], input[type=number], select {
   font: 14px var(--f-ui); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; min-width: 0; max-width: 100%; }
 input.big { font: 18px var(--f-write); padding: 12px 14px; background: var(--sheet); width: 100%; }
@@ -171,7 +168,7 @@ mark.mk sup { font: 600 10px var(--f-mono); color: var(--red); margin-left: 1px;
 .itemsnav { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); max-height: calc(100vh - 60px); overflow-y: auto; }
 .items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .item { width: 100%; text-align: left; display: grid; gap: 3px; padding: 10px 12px; border: 1px solid transparent; border-radius: var(--r); background: transparent; color: var(--ink); cursor: pointer; font: inherit; }
-.item:hover { background: var(--sheet); } .item.on { background: var(--sheet); border-color: var(--line); box-shadow: inset 3px 0 0 var(--blue); }
+.item.on { background: var(--sheet); border-color: var(--line); box-shadow: inset 3px 0 0 var(--blue); }
 .it-t { font-weight: 600; font-size: 14px; } .it-m { font-size: 12px; color: var(--ink2); } .it-s { display: flex; gap: 4px; flex-wrap: wrap; }
 .detail { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 24px; min-width: 0; }
 .review { background: var(--blue-soft); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
@@ -263,6 +260,51 @@ body.in-focus { overflow: hidden; }
     repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--lh) - 1px), var(--rule) calc(var(--lh) - 1px), var(--rule) var(--lh)); }
   .sheet.small { padding-left: 14px; }
   .card { padding: 16px; }
+}
+/* hover only where there is a real pointer, so a tap does not leave things highlighted */
+@media (hover: hover) {
+  #nav a:hover { background: var(--sheet); color: var(--ink); }
+  .btn:hover { border-color: var(--ink2); } .btn.primary:hover { filter: brightness(1.08); }
+  .icon:hover { color: var(--ink); background: var(--paper); }
+  .item:hover { background: var(--sheet); }
+}
+/* touch: thumb-sized targets */
+@media (pointer: coarse) {
+  .btn { min-height: 44px; } .btn.small { min-height: 38px; }
+  .icon { min-width: 40px; min-height: 40px; font-size: 18px; }
+  .check { padding-block: 4px; } .check input { width: 22px; height: 22px; margin-top: 0; }
+  .item { padding: 12px; }
+  #nav a { min-height: 48px; display: grid; place-items: center; }
+}
+/* phones: no zoom on focus, keyboard-aware session screen, compact headers */
+@media (max-width: 900px) {
+  input[type=text], input[type=url], input[type=date], input[type=number], input[type=password], select, textarea { font-size: 16px; }
+  .focus { bottom: auto; height: var(--vvh, 100%); }
+  .focus-head { padding: 10px 0 8px; gap: 10px; align-items: center; }
+  .clock { font-size: 34px; }
+  .steps { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 62vw; }
+  .steps::-webkit-scrollbar { display: none; }
+  .steps li { white-space: nowrap; }
+  .focus-body { padding: 14px 0; }
+  .focus-foot { padding-top: 8px; gap: 8px; }
+  .stepmsg { order: -1; flex-basis: 100%; }
+  .stepmsg:not(.on) { display: none; }
+  .card.next h2 { font-size: 22px; }
+  body.kb .rail, body.kb .status { display: none; }
+}
+/* phones: the error log as cards instead of a 7-column table */
+@media (max-width: 600px) {
+  .tbl.errors thead { display: none; }
+  .tbl.errors, .tbl.errors tbody { display: block; }
+  .tbl.errors tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 10px; padding: 12px 0; border-bottom: 1px solid var(--rule); align-items: center; }
+  .tbl.errors td { border: 0; padding: 0; }
+  .tbl.errors td.ty { grid-area: 1 / 1; font-weight: 600; }
+  .tbl.errors td.n { grid-area: 1 / 2; } .tbl.errors td.n::after { content: '\00d7'; }
+  .tbl.errors td.del { grid-area: 1 / 3; }
+  .tbl.errors td.wrote { grid-column: 1 / -1; font-size: 16px; }
+  .tbl.errors td.cor { grid-column: 1 / -1; }
+  .tbl.errors td.last, .tbl.errors td.by { font-size: 12px; color: var(--ink2); }
+  .tbl.errors td.by { grid-column: 2 / -1; text-align: right; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
@@ -1414,7 +1456,7 @@ function selfMarker(getText, marks, onAdd, onRemove) {
   const ta = h('textarea', { class: 'sheet readonly', readOnly: true, rows: 8, value: getText(), 'aria-label': 'Your draft. Select a problem to mark it.' });
   const type = h('select', { 'aria-label': 'Error type' }, ERROR_TYPES.map(t => h('option', { value: t }, t)));
   const fix = h('input', { type: 'text', placeholder: 'Correct form, if you know it', 'aria-label': 'Correct form' });
-  const out = h('p', { class: 'muted small' }, 'Select the wrong words in your draft, then mark them.');
+  const out = h('p', { class: 'muted small' }, matchMedia('(pointer: coarse)').matches ? 'Press and hold to select the wrong words in your draft, then mark them.' : 'Select the wrong words in your draft, then mark them.');
   const list = h('ul', { class: 'marklist' });
   const draw = () => list.replaceChildren(...marks().map((m, i) => [m, i]).filter(([m]) => m.by === 'self').map(([m, i]) => m.by === 'self' ? h('li', null, h('span', { class: 'tag' }, m.type), ' “', h('span', { class: 'q' }, m.quote), '”',
     m.fix ? [' → ', h('em', null, m.fix)] : '', h('button', { class: 'icon', 'aria-label': 'Remove mark', onclick: () => { onRemove(i); draw(); } }, '×')) : null));
@@ -1690,7 +1732,7 @@ function drawNav() {
 }
 function drawStatus() {
   const el = document.getElementById('status');
-  const where = Store.mode === 'db' ? (window.desktop ? 'Saved on this computer' : 'Saved to your private app data') : Store.mode === 'local' ? 'Saved in this browser only' : '';
+  const where = Store.mode === 'db' ? (window.desktop ? (window.desktop.kind === 'phone' ? 'Saved on this phone' : 'Saved on this computer') : 'Saved to your private app data') : Store.mode === 'local' ? 'Saved in this browser only' : '';
   el.replaceChildren(h('span', null, where), Store.status ? h('span', { class: 'warn' }, Store.status) : '', App.notice ? h('span', { class: 'warn' }, App.notice) : '');
   if (App.notice && !App._noticeT) App._noticeT = setTimeout(() => { App.notice = ''; App._noticeT = 0; drawStatus(); }, 6000);
 }
@@ -1940,7 +1982,7 @@ function viewWriting() {
   const list = h('ul', { class: 'items' }, items.map(it => {
     const d = it.doc, ms = d.marks || [];
     const label = it.coll === 'pieces' ? (d.title || 'Untitled piece') : KIND_LABEL[d.kind];
-    return h('li', null, h('button', { class: 'item' + (sel && sel.id === d.id ? ' on' : ''), onclick: () => { App.sel = { coll: it.coll, id: d.id }; render(); } },
+    return h('li', null, h('button', { class: 'item' + (sel && sel.id === d.id ? ' on' : ''), onclick: () => { App.sel = { coll: it.coll, id: d.id }; render(); if (matchMedia('(max-width: 900px)').matches) { const el = document.querySelector('.detail'); if (el) el.scrollIntoView({ block: 'start' }); } } },
       h('span', { class: 'it-t' }, label), h('span', { class: 'it-m' }, fmtDate(it.t) + ' · ' + plural(d.words || 0, 'word')),
       h('span', { class: 'it-s' }, it.coll === 'pieces' ? h('span', { class: 'pill' }, d.status) : '', ms.length ? h('span', { class: 'pill ' + (ms.every(m => m.fixed) ? 'good' : 'red') }, ms.filter(m => m.fixed).length + '/' + ms.length + ' fixed') : '',
         d.reviewedAt ? h('span', { class: 'pill' }, 'marked') : '')));
@@ -2011,10 +2053,10 @@ function viewErrors() {
       Store.put('errors', row.id, row);
     } }, 'Add'))),
     h('div', { class: 'scroll' }, h('table', { class: 'tbl errors' }, h('thead', null, h('tr', null, ['Error type', 'What I wrote', 'Correct form', 'Times', 'Last', 'Found by', ''].map(x => h('th', null, x)))),
-      h('tbody', null, rows.map(r => h('tr', null, h('td', null, r.type), h('td', { class: 'wrote' }, r.wrote),
-        h('td', null, h('input', { type: 'text', value: r.correct, 'aria-label': 'Correct form for ' + r.wrote, onchange: e => Store.put('errors', r.id, Object.assign(clone(r), { correct: e.target.value.trim() })) })),
-        h('td', { class: 'n' }, r.dates.length), h('td', null, fmtDate(r.dates[r.dates.length - 1])), h('td', null, r.by === 'plan' ? 'plan' : r.by === 'claude' ? 'Claude' : r.by === 'ai' ? 'old app' : 'you'),
-        h('td', null, h('button', { class: 'icon', 'aria-label': 'Delete row', onclick: () => Store.remove('errors', r.id) }, '×'))))))));
+      h('tbody', null, rows.map(r => h('tr', null, h('td', { class: 'ty' }, r.type), h('td', { class: 'wrote' }, r.wrote),
+        h('td', { class: 'cor' }, h('input', { type: 'text', value: r.correct, 'aria-label': 'Correct form for ' + r.wrote, onchange: e => Store.put('errors', r.id, Object.assign(clone(r), { correct: e.target.value.trim() })) })),
+        h('td', { class: 'n' }, r.dates.length), h('td', { class: 'last' }, fmtDate(r.dates[r.dates.length - 1])), h('td', { class: 'by' }, r.by === 'plan' ? 'plan' : r.by === 'claude' ? 'Claude' : r.by === 'ai' ? 'old app' : 'you'),
+        h('td', { class: 'del' }, h('button', { class: 'icon', 'aria-label': 'Delete row', onclick: () => Store.remove('errors', r.id) }, '×'))))))));
 }
 
 /* ---------- Progress ---------- */
@@ -2104,16 +2146,18 @@ function desktopClaudeCard() {
   const key = h('input', { type: 'password', autocomplete: 'off', placeholder: 'sk-ant-\u2026', 'aria-label': 'Anthropic API key', id: 'apikey' });
   const out = h('p', { class: 'muted small' }, App.sample ? 'A key is saved. Reviews and repair checks go to Claude with it.' : 'No key saved. Reviews fall back to copy and paste.');
   const refresh = async () => { App.sample = await window.claude.use('sample'); render(); };
-  return card('', h('h3', null, 'Claude reviews on this computer'),
+  const phone = window.desktop.kind === 'phone';
+  return card('', h('h3', null, phone ? 'Claude reviews on this phone' : 'Claude reviews on this computer'),
     p(['Reviews use your own Anthropic API key, from ', h('a', { href: 'https://console.anthropic.com/settings/keys', target: '_blank', rel: 'noopener' }, 'console.anthropic.com'),
-      '. The key is encrypted with Windows\u2019 own protection and stays on this computer. Each review costs a few cents of API usage.'], 'small'),
+      phone ? '. The key is kept in this app\u2019s storage on this phone and is sent only to Anthropic. Each review costs a few cents of API usage.' : '. The key is encrypted with Windows\u2019 own protection and stays on this computer. Each review costs a few cents of API usage.'], 'small'),
     h('div', { class: 'markrow' }, key, h('button', { class: 'btn', onclick: async () => {
       const v = key.value.trim(); if (!/^sk-ant-/.test(v)) { out.textContent = 'That does not look like an Anthropic key (it starts with sk-ant-).'; return; }
       try { await window.desktop.setKey(v); key.value = ''; await refresh(); } catch (e) { out.textContent = 'The key could not be saved: ' + ((e && e.message) || e); }
     } }, 'Save key'), App.sample ? h('button', { class: 'btn quiet danger', onclick: async () => { await window.desktop.clearKey(); await refresh(); } }, 'Remove key') : ''), out);
 }
 function dataCard() {
-  const where = window.desktop ? 'Your data is saved on this computer, in your AppData folder. A dated copy is kept each day for the last 14 days. Backups you export go to your Documents folder.' : Store.mode === 'db' ? 'Your data is saved to this app’s private storage, readable only by you. It follows you to any device where you open this app in Claude.'
+  const where = window.desktop && window.desktop.kind === 'phone' ? 'Your data is saved on this phone, inside this app. It is not shared with the PC app or with Claude. Export a backup now and then; it is your copy if the phone is lost or the app is removed.'
+    : window.desktop ? 'Your data is saved on this computer, in your AppData folder. A dated copy is kept each day for the last 14 days. Backups you export go to your Documents folder.' : Store.mode === 'db' ? 'Your data is saved to this app’s private storage, readable only by you. It follows you to any device where you open this app in Claude.'
     : 'This page is running outside the Claude viewer, so your data is kept in this browser only. Export it regularly.';
   const file = h('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Backup file' });
   const paste = h('textarea', { class: 'sheet small', rows: 3, placeholder: 'Or paste the JSON here', 'aria-label': 'Pasted JSON' });
@@ -2124,7 +2168,7 @@ function dataCard() {
   };
   file.addEventListener('change', () => { const f = file.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => preview(String(r.result)); r.readAsText(f); });
   return card('', h('h3', null, 'Your data'), p(where, 'small'),
-    window.desktop ? h('div', { class: 'row' }, h('button', { class: 'btn quiet small', onclick: () => window.desktop.openDataFolder() }, 'Open the data folder')) : '',
+    window.desktop && window.desktop.kind === 'pc' ? h('div', { class: 'row' }, h('button', { class: 'btn quiet small', onclick: () => window.desktop.openDataFolder() }, 'Open the data folder')) : '',
     h('div', { class: 'row' }, App.downloads ? h('button', { class: 'btn', onclick: exportData }, 'Export a backup') : h('button', { class: 'btn', onclick: e => copyText(JSON.stringify(Store.dump()), e.currentTarget.nextSibling || e.currentTarget) }, 'Copy a backup'), h('span', { class: 'muted small' })),
     h('h3', null, 'Import'), p('Bring in an Export file from Recovery Studio or Unaided Studio, or a backup from this app. Anything already here is kept; nothing is added twice.', 'muted small'),
     file, paste, h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => preview(paste.value) }, 'Check it')), out);
@@ -2190,6 +2234,19 @@ async function boot() {
   App.route = routeFromHash() || 'today';
   window.addEventListener('hashchange', () => { const r = routeFromHash(); if (r && r !== App.route) { App.route = r; render(); } });
   Store.onChange = queueRender;
+  /* Phones: size the session screen to the visible area so its footer stays above the keyboard,
+     and hide the tab bar while typing on a page. */
+  if (window.visualViewport) {
+    const vv = () => document.documentElement.style.setProperty('--vvh', Math.round(window.visualViewport.height) + 'px');
+    window.visualViewport.addEventListener('resize', vv); vv();
+  }
+  const typing = e => e.target.matches && e.target.matches('#view input:not([type=checkbox]), #view textarea, #view select');
+  document.addEventListener('focusin', e => { if (typing(e)) document.body.classList.add('kb'); });
+  /* Bring the tab bar back only after the tap that moved focus has landed, so the layout does not shift under it. */
+  document.addEventListener('focusout', e => {
+    if (!typing(e)) return;
+    setTimeout(() => { const a = document.activeElement; if (!(a && a.matches && a.matches('#view input:not([type=checkbox]), #view textarea, #view select'))) document.body.classList.remove('kb'); }, 350);
+  });
   render();
   await Store.init();
   render();

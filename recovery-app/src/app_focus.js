@@ -102,7 +102,7 @@ function selfMarker(getText, marks, onAdd, onRemove) {
   const ta = h('textarea', { class: 'sheet readonly', readOnly: true, rows: 8, value: getText(), 'aria-label': 'Your draft. Select a problem to mark it.' });
   const type = h('select', { 'aria-label': 'Error type' }, ERROR_TYPES.map(t => h('option', { value: t }, t)));
   const fix = h('input', { type: 'text', placeholder: 'Correct form, if you know it', 'aria-label': 'Correct form' });
-  const out = h('p', { class: 'muted small' }, 'Select the wrong words in your draft, then mark them.');
+  const out = h('p', { class: 'muted small' }, matchMedia('(pointer: coarse)').matches ? 'Press and hold to select the wrong words in your draft, then mark them.' : 'Select the wrong words in your draft, then mark them.');
   const list = h('ul', { class: 'marklist' });
   const draw = () => list.replaceChildren(...marks().map((m, i) => [m, i]).filter(([m]) => m.by === 'self').map(([m, i]) => m.by === 'self' ? h('li', null, h('span', { class: 'tag' }, m.type), ' “', h('span', { class: 'q' }, m.quote), '”',
     m.fix ? [' → ', h('em', null, m.fix)] : '', h('button', { class: 'icon', 'aria-label': 'Remove mark', onclick: () => { onRemove(i); draw(); } }, '×')) : null));

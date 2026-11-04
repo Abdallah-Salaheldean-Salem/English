@@ -2,7 +2,7 @@
    Pass 1: browser-only mode (no Claude viewer): local storage, copy-and-paste review.
    Pass 2: a mocked Claude viewer: the db capability and Claude calls. */
 'use strict';
-const { chromium } = require('playwright');
+const { chromium, devices } = require('playwright');
 const fs = require('fs'), path = require('path'), assert = require('assert');
 
 const ROOT = path.join(__dirname, '..');
@@ -33,17 +33,24 @@ const MOCK = `(() => {
 
 async function run(mode) {
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+  const ctx = await browser.newContext(mode === 'pwa' ? Object.assign({}, devices['iPhone 13'], { serviceWorkers: 'block' }) : { viewport: { width: 1280, height: 860 } });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
   page.on('console', m => { if (m.type() === 'error' && !/fonts\.g|ERR_|Failed to load resource/.test(m.text())) errors.push(m.text()); });
   const mock = mode === 'launcher' ? await Launcher.start(47811, '0123456789abcdef0123456789abcdef') : null;
-  await page.route('**/*', r => { const u = r.request().url(); if (u.startsWith('http://app.test')) return r.fulfill({ contentType: 'text/html', body: PAGE }); if (mock && u.startsWith(mock.url)) return r.continue(); return r.abort(); });
+  const site = mode === 'pwa' ? await Launcher.startStatic(47901, path.join(ROOT, 'pwa')) : null;
+  const served = mock || site;
+  await page.route('**/*', r => { const u = r.request().url();
+    if (u.startsWith('http://app.test')) return r.fulfill({ contentType: 'text/html', body: PAGE });
+    if (served && u.startsWith(served.url)) return r.continue();
+    if (site && u === 'https://api.anthropic.com/v1/messages') { const h = r.request().headers(); if (!h['x-api-key'] || h['anthropic-dangerous-direct-browser-access'] !== 'true') return r.fulfill({ status: 401, body: '{}' });
+      const text = Launcher.fakeClaude(JSON.parse(r.request().postData()).messages[0].content); return r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ content: [{ type: 'text', text }], stop_reason: 'end_turn' }) }); }
+    return r.abort(); });
   if (mode === 'viewer') await page.addInitScript(MOCK);
   await page.clock.install({ time: new Date('2026-11-04T09:00:00') });   // a Wednesday
-  const tick = async (ms = 400) => { await page.clock.runFor(ms); if (mock) { await new Promise(r => setTimeout(r, 120)); await page.clock.runFor(60); } };
-  const open = async () => { await page.goto((mock ? mock.url : 'http://app.test/') + '#today'); await tick(600); };
+  const tick = async (ms = 400) => { await page.clock.runFor(ms); if (served) { await new Promise(r => setTimeout(r, 120)); await page.clock.runFor(60); } };
+  const open = async () => { await page.goto((served ? served.url : 'http://app.test/') + '#today'); await tick(600); };
   const click = async (sel, opt) => { await page.locator(sel, opt).first().click(); await tick(); };
   const btn = async name => { const f = page.locator('#focus:not([hidden])'); const scope = (await f.count()) ? f : page; await scope.getByRole('button', { name, exact: false }).first().click(); await tick(); };
   const text = () => page.locator('body').innerText();
@@ -59,7 +66,7 @@ async function run(mode) {
   await page.getByLabel('Existing daily routine').fill('finish my morning coffee');
   await page.getByLabel('Place').fill('my desk at the Hub');
   await btn('Start the plan');
-  if (mode === 'launcher') {
+  if (served) {
     await click('#nav a[href="#setup"]');
     assert.ok(await has('No key saved'), 'no key at first');
     await page.locator('#apikey').fill('not-a-key'); await btn('Save key');
@@ -113,7 +120,7 @@ async function run(mode) {
     await btn('Ask Claude to mark it'); await tick(800);
     assert.ok(await has('Marked by Claude'), 'claude review applied');
     const prompts = await page.evaluate(() => window.__prompts);
-    if (!mock) assert.ok(/Never rewrite/.test(prompts[0]));
+    if (!served) assert.ok(/Never rewrite/.test(prompts[0]));
   }
   await btn('Open in Writing');
   assert.ok(await has('Marks'), 'marks panel');
@@ -221,6 +228,7 @@ async function run(mode) {
   await page.getByLabel('Pasted JSON').fill(JSON.stringify(rec));
   await btn('Check it');
   assert.ok(await has('0 sessions'), 'idempotent import');
+  if (mode === 'pwa') assert.ok(await has('Claude reviews on this phone') && await has('Saved on this phone') && !(await has('Open the data folder')), 'phone setup');
   if (mode === 'launcher') assert.ok(await has('Claude reviews on this computer') && await has('Open the data folder') && await has('Saved on this computer'), 'desktop setup');
   await shot('setup');
 
@@ -249,7 +257,7 @@ async function run(mode) {
   await btn('Stop'); await btn('Discard');
 
   if (mode !== 'local') {
-    const docs = mock ? Object.keys(mock.docs) : await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('mockdb') || '{}')));
+    const docs = mock ? Object.keys(mock.docs) : site ? Object.keys(await page.evaluate(() => window.desktop.readAll())) : await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('mockdb') || '{}')));
     assert.ok(docs.includes('state/app') && docs.filter(d => d.startsWith('sessions/')).length >= 6 && docs.filter(d => d.startsWith('errors/')).length >= 8, 'db docs: ' + docs.length);
     assert.ok(!(await page.evaluate(() => localStorage.getItem('ewr.v3'))), 'nothing kept in browser storage when the db is served');
     await page.reload(); await tick(800);
@@ -261,8 +269,42 @@ async function run(mode) {
     assert.ok(mock.saved.length === 1 && JSON.parse(mock.saved[0][1]).format === 'english-writing-recovery/v3' && await has('Backup saved to'), 'export to Documents');
     mock.server.close();
   }
+  if (site) {
+    await click('#nav a[href="#setup"]');
+    const dl = page.waitForEvent('download');
+    await btn('Export a backup');
+    const file = await dl; const body = fs.readFileSync(await file.path(), 'utf8');
+    await tick(600);
+    assert.ok(JSON.parse(body).format === 'english-writing-recovery/v3' && await has('Backup saved to Downloads'), 'phone export');
+    site.server.close();
+  }
   await browser.close();
   console.log(mode + ': all flows passed');
 }
 
-(async () => { try { await run('local'); await run('viewer'); await run('launcher'); } catch (e) { console.error(e); process.exit(1); } })();
+/* The phone app installs and opens offline. */
+async function pwaOffline() {
+  const site = await Launcher.startStatic(47902, path.join(ROOT, 'pwa'));
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext(devices['Pixel 7']);
+  const page = await ctx.newPage();
+  const errors = []; page.on('pageerror', e => errors.push(String(e)));
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  await page.goto(site.url);
+  const m = await page.evaluate(async () => { const r = await fetch(document.querySelector('link[rel=manifest]').href); return r.json(); });
+  assert.ok(m.display === 'standalone' && m.icons.some(i => i.purpose === 'maskable' && i.sizes === '512x512'), 'manifest');
+  for (const i of m.icons.concat([{ src: 'apple-touch-icon.png' }, { src: 'sw.js' }])) assert.strictEqual((await page.request.get(site.url + i.src)).status(), 200, i.src);
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload(); await page.waitForTimeout(500);
+  assert.ok(await page.evaluate(() => !!navigator.serviceWorker.controller), 'service worker controls the page');
+  await ctx.setOffline(true); site.server.close();
+  await page.reload(); await page.waitForTimeout(800);
+  assert.ok((await page.locator('body').innerText()).includes('out of practice, not gone'), 'opens offline');
+  assert.ok(await page.evaluate(() => window.desktop && window.desktop.kind === 'phone'), 'phone bridge active');
+  assert.deepStrictEqual(errors, [], 'offline page errors');
+  await page.screenshot({ path: path.join(SHOTS, 'pwa-offline.png') });
+  await browser.close();
+  console.log('pwa: installable and opens offline');
+}
+
+(async () => { try { if (!process.env.ONLY) { await run('local'); await run('viewer'); await run('launcher'); } await run('pwa'); await pwaOffline(); } catch (e) { console.error(e); process.exit(1); } })();

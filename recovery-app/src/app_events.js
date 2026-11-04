@@ -29,6 +29,19 @@ async function boot() {
   App.route = routeFromHash() || 'today';
   window.addEventListener('hashchange', () => { const r = routeFromHash(); if (r && r !== App.route) { App.route = r; render(); } });
   Store.onChange = queueRender;
+  /* Phones: size the session screen to the visible area so its footer stays above the keyboard,
+     and hide the tab bar while typing on a page. */
+  if (window.visualViewport) {
+    const vv = () => document.documentElement.style.setProperty('--vvh', Math.round(window.visualViewport.height) + 'px');
+    window.visualViewport.addEventListener('resize', vv); vv();
+  }
+  const typing = e => e.target.matches && e.target.matches('#view input:not([type=checkbox]), #view textarea, #view select');
+  document.addEventListener('focusin', e => { if (typing(e)) document.body.classList.add('kb'); });
+  /* Bring the tab bar back only after the tap that moved focus has landed, so the layout does not shift under it. */
+  document.addEventListener('focusout', e => {
+    if (!typing(e)) return;
+    setTimeout(() => { const a = document.activeElement; if (!(a && a.matches && a.matches('#view input:not([type=checkbox]), #view textarea, #view select'))) document.body.classList.remove('kb'); }, 350);
+  });
   render();
   await Store.init();
   render();
