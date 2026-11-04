@@ -1,0 +1,2209 @@
+<title>English Writing Recovery</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an exercise book. Left rail of tabs, one reading column, ruled sheets with a margin line for writing. */
+:root {
+  --paper: #edf0f3; --sheet: #fbfcfd; --ink: #17202b; --ink2: #4b5667; --faint: #7b8696;
+  --rule: #d6dce4; --line: #c9d3e0; --margin: #e2a59b;
+  --blue: #22468c; --blue-soft: #e2e9f6; --red: #b5412c; --red-soft: #f6e4df; --green: #2c7250; --green-soft: #dfefe6; --amber: #8f6210;
+  --f-write: 'Literata', Georgia, 'Times New Roman', serif;
+  --f-ui: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #0f141b; --sheet: #161d27; --ink: #e2e7ee; --ink2: #a3adbb; --faint: #7f8a9a;
+  --rule: #263140; --line: #2b3746; --margin: #7a3f37;
+  --blue: #93aee8; --blue-soft: #1c2840; --red: #ee8169; --red-soft: #3a221d; --green: #6dc597; --green-soft: #183326; --amber: #e2b158; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #0f141b; --sheet: #161d27; --ink: #e2e7ee; --ink2: #a3adbb; --faint: #7f8a9a;
+  --rule: #263140; --line: #2b3746; --margin: #7a3f37;
+  --blue: #93aee8; --blue-soft: #1c2840; --red: #ee8169; --red-soft: #3a221d; --green: #6dc597; --green-soft: #183326; --amber: #e2b158; color-scheme: dark }
+
+* { box-sizing: border-box; }
+html, body { background: var(--paper); color: var(--ink); }
+body { font: 15px/1.55 var(--f-ui); -webkit-font-smoothing: antialiased; }
+a { color: var(--blue); text-underline-offset: 2px; }
+h1, h2, h3 { font-family: var(--f-write); font-weight: 600; text-wrap: balance; margin: 0; line-height: 1.2; }
+h1 { font-size: clamp(28px, 4vw, 38px); letter-spacing: -0.01em; }
+h2 { font-size: 22px; }
+h3 { font-size: 16px; font-family: var(--f-ui); font-weight: 600; }
+p { margin: 0; }
+.eyebrow { font: 500 11px/1.4 var(--f-ui); text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }
+.muted { color: var(--ink2); } .small { font-size: 13px; } small { font-size: 12px; }
+.good { color: var(--green); } .warn { color: var(--red); } .note { color: var(--amber); }
+.lead { font-size: 16px; max-width: 62ch; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* shell */
+#shell { display: grid; grid-template-columns: 216px minmax(0, 1fr); min-height: 100%; }
+.rail { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; height: 100vh; padding: 28px 18px; padding-left: max(18px, env(safe-area-inset-left, 0px));
+  border-right: 1px solid var(--rule); display: flex; flex-direction: column; gap: 26px; }
+.brand { display: flex; align-items: center; gap: 10px; font: 600 15px var(--f-write); }
+.nib { width: 22px; height: 22px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--blue); box-shadow: inset 0 0 0 5px var(--paper); }
+.phasebox strong { display: block; font: 600 18px var(--f-write); margin: 2px 0 8px; }
+.phasedots { display: flex; gap: 6px; }
+.phasedots i { width: 26px; height: 4px; border-radius: 2px; background: var(--rule); }
+.phasedots i.past { background: var(--ink2); } .phasedots i.now { background: var(--blue); }
+#nav { display: flex; flex-direction: column; gap: 2px; }
+#nav a { padding: 8px 10px; border-radius: var(--r); color: var(--ink2); text-decoration: none; font-weight: 500; }
+#nav a:hover { background: var(--sheet); color: var(--ink); }
+#nav a.on { background: var(--sheet); color: var(--ink); box-shadow: inset 3px 0 0 var(--blue); }
+#view { padding-block: 36px 90px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); outline: none; }
+.page { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.page.wide { max-width: 1080px; }
+.pad { padding: 40px; }
+.pagehead { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.status { position: fixed; right: 0; bottom: 0; padding: 6px 14px; padding-right: max(14px, env(safe-area-inset-right, 0px)); padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  font-size: 12px; color: var(--faint); display: flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; max-width: 100%; pointer-events: none; }
+.status .warn { color: var(--red); background: var(--red-soft); padding: 2px 8px; border-radius: 4px; pointer-events: auto; }
+
+/* cards and bits */
+.card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card.next { border-color: var(--blue); box-shadow: 0 1px 0 var(--rule), inset 4px 0 0 var(--blue); padding: 24px 26px; }
+.card.next h2 { font-size: 26px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } .row.end { justify-content: flex-end; }
+.stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.anchor { font: italic 17px/1.5 var(--f-write); color: var(--ink2); max-width: 60ch; }
+.anchor em { color: var(--ink); font-style: normal; border-bottom: 1px solid var(--line); }
+.anchor.form input { font: inherit; font-style: normal; border: 0; border-bottom: 1.5px solid var(--blue); background: transparent; color: var(--ink); width: 15em; max-width: 100%; padding: 2px 2px; border-radius: 0; }
+.alert { background: var(--red-soft); color: var(--red); padding: 10px 14px; border-radius: var(--r); font-size: 14px; }
+.pill { display: inline-block; font: 500 11px/1 var(--f-ui); padding: 4px 8px; border-radius: 99px; background: var(--blue-soft); color: var(--blue); text-transform: lowercase; white-space: nowrap; }
+.pill.good { background: var(--green-soft); color: var(--green); } .pill.red { background: var(--red-soft); color: var(--red); text-transform: none; }
+.tag { font: 500 12px var(--f-ui); color: var(--red); }
+.bar { display: inline-block; height: 6px; background: var(--rule); border-radius: 3px; overflow: hidden; width: 100%; }
+.bar > span { display: block; height: 100%; background: var(--blue); border-radius: 3px; }
+.scroll { overflow-x: auto; max-width: 100%; }
+
+/* controls */
+.btn { font: 500 14px var(--f-ui); padding: 9px 16px; border-radius: var(--r); border: 1px solid var(--line); background: var(--sheet); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: var(--ink2); }
+.btn.primary { background: var(--blue); border-color: var(--blue); color: var(--sheet); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.big { padding: 12px 22px; font-size: 15px; }
+.btn.small { padding: 6px 11px; font-size: 13px; }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--ink2); }
+.btn.danger { color: var(--red); }
+.icon { border: 0; background: transparent; color: var(--faint); cursor: pointer; font-size: 16px; padding: 2px 8px; border-radius: 4px; line-height: 1; }
+.icon:hover { color: var(--ink); background: var(--paper); } .icon:disabled { opacity: .3; cursor: default; }
+input[type=text], input[type=url], input[type=date], input[type=number], select {
+  font: 14px var(--f-ui); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; min-width: 0; max-width: 100%; }
+input.big { font: 18px var(--f-write); padding: 12px 14px; background: var(--sheet); width: 100%; }
+input.num { width: 80px; }
+.field { display: flex; flex-direction: column; gap: 6px; font-weight: 500; font-size: 14px; }
+.field input, .field select { font-weight: 400; }
+.field.inline { flex-direction: row; align-items: center; flex-wrap: wrap; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+.check input { margin-top: 3px; accent-color: var(--blue); width: 16px; height: 16px; flex: none; }
+.check small { display: block; color: var(--ink2); margin-top: 2px; }
+.days { display: flex; gap: 14px; flex-wrap: wrap; font-weight: 400; }
+details summary { cursor: pointer; color: var(--ink2); font-size: 14px; }
+details[open] summary { margin-bottom: 10px; }
+
+/* the writing sheet: ruled lines, margin line */
+.sheet { --lh: 30px; width: 100%; display: block; font: 18px/var(--lh) var(--f-write); color: var(--ink); resize: vertical;
+  background-color: var(--sheet); border: 1px solid var(--line); border-radius: var(--r);
+  background-image: linear-gradient(90deg, transparent 46px, var(--margin) 46px, var(--margin) 47px, transparent 47px),
+                    repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--lh) - 1px), var(--rule) calc(var(--lh) - 1px), var(--rule) var(--lh));
+  background-attachment: local; background-position: 0 14px; padding: 14px 18px 14px 62px; caret-color: var(--blue); }
+.sheet.small { --lh: 26px; font-size: 16px; padding-left: 18px; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--lh) - 1px), var(--rule) calc(var(--lh) - 1px), var(--rule) var(--lh)); }
+.sheet.readonly { background-color: var(--paper); }
+.sheet:focus { outline: none; border-color: var(--blue); }
+.meta { display: flex; gap: 16px; flex-wrap: wrap; align-items: baseline; font-size: 13px; color: var(--ink2); }
+.count { font: 500 13px var(--f-mono); color: var(--ink2); font-variant-numeric: tabular-nums; }
+.count.ok { color: var(--green); } .count.warn, .pause.warn { color: var(--red); }
+.pause { font: 13px var(--f-mono); font-variant-numeric: tabular-nums; }
+.prose { font: 17px/1.75 var(--f-write); white-space: pre-wrap; overflow-wrap: anywhere; }
+mark.mk { background: transparent; color: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+mark.mk.claude { text-decoration-color: var(--red); text-decoration-style: wavy; }
+mark.mk.self { text-decoration-color: var(--blue); }
+mark.mk.ai { text-decoration-color: var(--faint); text-decoration-style: dotted; }
+mark.mk.fixed { text-decoration-color: var(--green); text-decoration-style: solid; }
+mark.mk sup { font: 600 10px var(--f-mono); color: var(--red); margin-left: 1px; }
+.model { margin: 0; padding: 18px 22px; border-left: 3px solid var(--ink2); background: var(--paper); border-radius: 0 var(--r) var(--r) 0; }
+.model blockquote { margin: 0 0 10px; font: 17px/1.7 var(--f-write); }
+.model figcaption { font-size: 13px; color: var(--ink2); }
+.topic { font: italic 19px/1.4 var(--f-write); }
+.topicrow { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.rules { margin: 0; padding-left: 18px; color: var(--ink2); font-size: 14px; display: flex; flex-direction: column; gap: 3px; }
+
+/* today */
+.week { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.week li { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; border-radius: var(--r); font-size: 12px; color: var(--ink2); }
+.week li i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--line); }
+.week li.did i { background: var(--blue); border-color: var(--blue); }
+.week li.wkend { background: var(--paper); }
+.week li.today { box-shadow: inset 0 0 0 1.5px var(--blue); color: var(--ink); font-weight: 600; }
+.week small { font-family: var(--f-mono); font-size: 11px; }
+.opt { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding-top: 12px; border-top: 1px solid var(--rule); flex-wrap: wrap; }
+.opt > div:first-child { flex: 1 1 240px; min-width: 0; }
+
+/* plan */
+.card.phase.past { opacity: .78; }
+.card.phase.current { border-color: var(--ink2); }
+.phead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.phead .eyebrow { flex-basis: 100%; }
+.gate ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.gate li { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(80px, 160px) auto; gap: 10px; align-items: center; font-size: 14px; }
+.gate .tick { width: 18px; height: 18px; border: 1.5px solid var(--line); border-radius: 4px; display: grid; place-items: center; font-size: 12px; color: var(--sheet); }
+.gate li.met .tick { background: var(--green); border-color: var(--green); }
+.gate li.met .bar > span { background: var(--green); }
+.gv { font: 12px var(--f-mono); color: var(--ink2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl { border-collapse: collapse; width: 100%; font-size: 14px; }
+.tbl th { text-align: left; font: 500 11px var(--f-ui); text-transform: uppercase; letter-spacing: .06em; color: var(--faint); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl td { padding: 9px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.tbl td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.tbl td.b { font-weight: 600; } .tbl td.wrote { font-family: var(--f-write); }
+.tbl td input { width: 100%; min-width: 140px; }
+.books, .links, .models, .drills, .crits, .typebars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.models li, .crits li { font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
+.drills li { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
+.typebars li { display: grid; grid-template-columns: minmax(0, 180px) 1fr 34px; gap: 10px; align-items: center; font-size: 13px; }
+.typebars .bar > span { background: var(--red); }
+.top3 { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* writing */
+.split { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 22px; align-items: start; }
+.itemsnav { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); max-height: calc(100vh - 60px); overflow-y: auto; }
+.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.item { width: 100%; text-align: left; display: grid; gap: 3px; padding: 10px 12px; border: 1px solid transparent; border-radius: var(--r); background: transparent; color: var(--ink); cursor: pointer; font: inherit; }
+.item:hover { background: var(--sheet); } .item.on { background: var(--sheet); border-color: var(--line); box-shadow: inset 3px 0 0 var(--blue); }
+.it-t { font-weight: 600; font-size: 14px; } .it-m { font-size: 12px; color: var(--ink2); } .it-s { display: flex; gap: 4px; flex-wrap: wrap; }
+.detail { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 24px; min-width: 0; }
+.review { background: var(--blue-soft); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.review.done { background: var(--paper); } .review.busy { color: var(--blue); }
+.marks h3 { margin-bottom: 8px; }
+.marks ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 14px; }
+.marks li { font-size: 14px; }
+.marks li.fixed { opacity: .82; }
+.mhead { display: flex; gap: 10px; align-items: center; } .by { font-size: 12px; color: var(--faint); margin-right: auto; }
+.ctx { font: 16px/1.6 var(--f-write); margin: 4px 0; }
+.hint { color: var(--blue); } .hint.warn { color: var(--red); }
+.repair, .markrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.repair input, .markrow input { flex: 1 1 180px; }
+.marker { display: flex; flex-direction: column; gap: 8px; }
+.marklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.marklist .q { font-family: var(--f-write); }
+.piece { display: flex; flex-direction: column; gap: 14px; }
+.stages { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; flex-wrap: wrap; }
+.stages li { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: var(--paper); color: var(--faint); }
+.stages li.past { color: var(--ink2); } .stages li.now { background: var(--blue); color: var(--sheet); }
+.checklist { border: 1px solid var(--rule); border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.checklist legend { font-weight: 600; font-size: 14px; padding: 0 6px; }
+.feedback ul { margin: 6px 0; padding-left: 18px; font-size: 14px; }
+.advance { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.stat { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; }
+.stat strong { font: 500 26px var(--f-mono); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 13px; color: var(--ink2); }
+.chart { width: 100%; min-width: 420px; height: auto; display: block; }
+.chart .grid { stroke: var(--rule); } .chart .ax { fill: var(--faint); font: 10px var(--f-mono); }
+.chart .b { fill: var(--line); } .chart .b.last { fill: var(--blue); } .chart .dot { fill: var(--ink2); }
+
+/* focus mode */
+.focus { position: fixed; inset: 0; z-index: 50; background: var(--paper); overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body.in-focus { overflow: hidden; }
+.focus-inner { max-width: 820px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.focus-head { position: sticky; top: 0; z-index: 2; background: var(--paper); display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding: 18px 0 14px; border-bottom: 1px solid var(--rule); }
+.fh-left { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.steps li { font-size: 13px; color: var(--faint); padding: 3px 9px; border-radius: 99px; border: 1px solid var(--rule); }
+.steps li small { font-family: var(--f-mono); font-size: 10px; margin-left: 4px; }
+.steps li.past { color: var(--ink2); background: var(--sheet); } .steps li.now { color: var(--sheet); background: var(--ink); border-color: var(--ink); }
+.clock { font: 500 clamp(36px, 7vw, 52px)/1 var(--f-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--ink); }
+.clock.over { color: var(--amber); }
+.focus-body { flex: 1; padding: 22px 0; }
+.focus-foot { position: sticky; bottom: 0; background: var(--paper); border-top: 1px solid var(--rule); padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.focus-foot #next, .focus-foot .btn.primary { margin-left: auto; }
+.stop { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.stepmsg { font-size: 13px; color: var(--red); opacity: 0; transition: opacity .2s; flex: 1 1 200px; }
+.stepmsg.on { opacity: 1; }
+.done h2 { font-size: 28px; }
+.notes, .pairs { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 14px; }
+.noterow .src { font: 15px/1.55 var(--f-write); color: var(--ink2); margin-bottom: 6px; }
+.noteinput { display: flex; gap: 8px; align-items: center; } .noteinput input { flex: 1; }
+.notelist { margin: 0; padding-left: 22px; font-size: 15px; display: flex; flex-direction: column; gap: 3px; color: var(--ink2); }
+.source6 { margin: 0; padding-left: 22px; font: 16px/1.6 var(--f-write); }
+.way { display: flex; flex-direction: column; gap: 6px; }
+.movelist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: mv; }
+.movelist li { display: flex; align-items: center; gap: 10px; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r); padding: 8px 10px; counter-increment: mv; }
+.movelist li::before { content: counter(mv); font: 12px var(--f-mono); color: var(--faint); width: 16px; }
+.mv-text { flex: 1; min-width: 0; } .mv-btns { display: flex; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.compare h3 { margin-bottom: 8px; }
+.kept { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font: 15px/1.5 var(--f-write); }
+.yours { font: 16px/1.7 var(--f-write); white-space: pre-wrap; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r); padding: 12px 14px; }
+.pairs .prev { font: 14px/1.5 var(--f-write); color: var(--faint); margin-bottom: 4px; }
+.pairs .check span { font-family: var(--f-write); font-size: 15px; }
+.plan { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+
+@media (max-width: 900px) {
+  #shell { display: block; }
+  .rail { position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; top: auto; height: auto; border-right: 0; border-top: 1px solid var(--rule); background: var(--paper);
+    flex-direction: row; padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); gap: 0; }
+  .brand, .phasebox { display: none; }
+  #nav { flex-direction: row; justify-content: space-between; width: 100%; }
+  #nav a { padding: 8px 6px; font-size: 13px; text-align: center; flex: 1; }
+  #nav a.on { box-shadow: inset 0 -2px 0 var(--blue); }
+  #view { padding-block: 20px 120px; }
+  .status { bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
+  .status > span:first-child { display: none; }
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .itemsnav { position: static; max-height: 260px; }
+  .detail { padding: 16px; }
+  .compare { grid-template-columns: minmax(0, 1fr); }
+  .gate li { grid-template-columns: 22px minmax(0, 1fr) auto; } .gate li .bar { grid-column: 2 / 4; }
+  .sheet { padding-left: 50px; background-image: linear-gradient(90deg, transparent 36px, var(--margin) 36px, var(--margin) 37px, transparent 37px),
+    repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--lh) - 1px), var(--rule) calc(var(--lh) - 1px), var(--rule) var(--lh)); }
+  .sheet.small { padding-left: 14px; }
+  .card { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+</style>
+<div id="shell">
+  <aside class="rail">
+    <div class="brand"><span class="nib" aria-hidden="true"></span><span>Writing Recovery</span></div>
+    <div id="phase" class="phasebox"></div>
+    <nav id="nav" aria-label="Sections"></nav>
+  </aside>
+  <main id="view" tabindex="-1"></main>
+</div>
+<footer id="status" class="status" role="status"></footer>
+<div id="focus" class="focus" hidden role="dialog" aria-modal="true" aria-label="Writing session"></div>
+<script>
+/* ==== src/content.js ==== */
+/* content.js: fixed material from the English Writing Recovery Plan. No logic. */
+'use strict';
+
+const ERROR_TYPES = [
+  'Missing article', 'Article with a plural', 'Wrong article', 'Missing "to" before a verb',
+  'Noun used as an adjective', 'Spelling', 'Subject-verb agreement', 'Verb tense',
+  'Verb form', 'Preposition', 'Word order', 'Singular or plural noun', 'Word choice',
+  'Run-on or comma splice', 'Sentence fragment', 'Punctuation', 'Capitalization', 'Other'
+];
+
+/* The first error-log rows come from the plan itself (by: 'plan'). */
+const PLAN_ERRORS = [
+  { type: 'Missing article', wrote: 'AI application wrote for me', correct: 'an AI application / AI applications' },
+  { type: 'Article with a plural', wrote: 'give me a examples', correct: 'give me examples' },
+  { type: 'Missing "to" before a verb', wrote: 'how produce them', correct: 'how to produce them' },
+  { type: 'Noun used as an adjective', wrote: 'a health mindset', correct: 'a healthy mindset' },
+  { type: 'Spelling', wrote: 'project mangment', correct: 'project management' }
+];
+
+const PHASES = {
+  1: { name: 'Restart', span: 'Weeks 1-4', goal: 'Write plain, correct sentences again without freezing. Volume and speed matter, quality does not yet.',
+       rules: ['One idea per sentence.', 'Subject and verb within the first five words.', '10-20 words per sentence.',
+               'When stuck, write the simplest true sentence ("The board did not boot.") and build from it.'] },
+  2: { name: 'Control', span: 'Weeks 5-12', goal: 'Control paragraphs on purpose, not by luck. One drill a weekday, one piece at the weekend.',
+       rules: ['The point is in the first sentence of each paragraph.', 'Each sentence picks up something from the one before it.',
+               'No sentence runs past 25 words.'] },
+  3: { name: 'Finished pieces', span: 'Months 4-6', goal: 'Finish whole pieces that a stranger would read to the end. One form for three months.',
+       rules: ['Week A: plan and draft the piece.', 'Week B: revise, post for critique, revise again.',
+               'Keep 2 weekday drills: a Franklin rebuild and sentence combining.'] },
+  4: { name: 'Spare-time writer', span: 'Month 7 on', goal: 'Publish once a month in one public place.',
+       rules: ['Weeks 1-2: draft the piece.', 'Week 3: get critique and revise.', 'Week 4: final read-aloud pass, then publish.',
+               'Every week: one Franklin rebuild on a writer you admire.'] }
+};
+
+const GATE_TEXT = {
+  1: ['15 sessions done', '150 words written in 15 minutes without stopping', 'Your most frequent errors identified (4 types seen at least twice)'],
+  2: ['6 Franklin rebuilds that keep every idea of the original', '8 weekend pieces finished and revised', 'Top 3 errors from Phase 1 at most once per 300 words'],
+  3: ['3 finished pieces of 800+ words', 'Each revised after feedback from at least 2 readers', '5 critiques written for other writers']
+};
+
+const RULES_TABLE = [
+  ['AI drafts or rewrites any sentence', 'Never', 'This is what caused the loss'],
+  ['Grammarly or autocomplete while drafting', 'Off', 'Suggestions interrupt the sentence you are building'],
+  ['AI marks errors after the draft, without fixing them', 'Yes', 'You still do the repair, which is the learning'],
+  ['AI explains a grammar rule you got wrong', 'Yes', 'Rules stick when tied to your own error'],
+  ['Dictionary or example sentences for one word', 'Yes', 'Checks usage without writing for you']
+];
+
+const REVISION_CHECKS = [
+  ['point', 'The point is in the first sentence of each paragraph.'],
+  ['link', 'Each sentence picks up something from the one before it.'],
+  ['len25', 'No sentence runs past 25 words.'],
+  ['opening', 'The opening states a problem (with but, however or although) and what it costs, not background.'],
+  ['aloud', 'It reads aloud without stumbling.']
+];
+
+const BOOKS = [
+  { id: 'klinkenborg', phase: 1, author: 'Verlyn Klinkenborg', title: 'Several Short Sentences About Writing', why: 'Teaches writing one sentence at a time, which is exactly where you are starting.' },
+  { id: 'williams', phase: 2, author: 'Joseph M. Williams and Joseph Bizup', title: 'Style: Lessons in Clarity and Grace', why: 'The clearest guide to why some sentences are easy to read and others are not.' },
+  { id: 'zinsser', phase: 3, form: 'essay', author: 'William Zinsser', title: 'On Writing Well', why: 'The standard guide to clear nonfiction.' },
+  { id: 'leguin', phase: 3, form: 'story', author: 'Ursula K. Le Guin', title: 'Steering the Craft', why: 'Short chapters, each with exercises to do.' },
+  { id: 'pinker', phase: 4, author: 'Steven Pinker', title: 'The Sense of Style', why: 'Explains why expert writers lose their readers and how to fix it.' }
+];
+
+const FORMS = {
+  essay: { label: 'Essays or blog posts', min: 800, max: 1500, study: "Paul Graham's essays; Zinsser, On Writing Well" },
+  story: { label: 'Short stories', min: 1500, max: 3000, study: 'Le Guin, Steering the Craft' }
+};
+
+const TOPICS = [
+  'Your day so far, in the order it happened.',
+  'A board you debugged recently: what failed and how you found it.',
+  'How the Hub handles a booking, from the request to the pickup.',
+  'The last thing you fixed with your hands.',
+  'A machine in the Hub that new students misuse, and how to use it properly.',
+  'What happened in your last MSc lecture or lab.',
+  'A freelance job: what the client asked for and what you delivered.',
+  'How an ESP32 joins a Wi-Fi network, for someone who has never used one.',
+  'A decision you made this week and why you made it.',
+  'Your way to work this morning.',
+  'A meal you cook often and how you make it.',
+  'A project that went wrong and what you would change.',
+  'How you plan a workshop at the Hub.',
+  'A conversation you had today.',
+  'Something you learned from a datasheet.',
+  'The room you are sitting in right now.',
+  'How you test a PCB after assembly.',
+  'A problem a student brought to you this week.',
+  'A tool you use every day and why you trust it.',
+  'What you want to have built by the end of this year.'
+];
+
+/* Six short sentences each, to join into two or three longer ones, three different ways. */
+const COMBINING = [
+  { id: 'c01', title: 'The board that would not boot', s: ['The board arrived on Monday.', 'It would not boot.', 'I checked the power rail first.', 'The rail read 3.3 volts.', 'The crystal was not oscillating.', 'A cold solder joint had cracked.'] },
+  { id: 'c02', title: 'A booking at the Hub', s: ['A student booked the laser cutter.', 'She booked it for Tuesday morning.', 'She had never used it before.', 'The induction takes twenty minutes.', 'She missed the induction.', 'We moved her booking to Thursday.'] },
+  { id: 'c03', title: 'The late sensor reading', s: ['The CO2 sensor reports every two seconds.', 'The display updated every ten seconds.', 'The readings looked stale.', 'The buffer was too small.', 'Old values stayed in it.', 'I doubled the buffer size.'] },
+  { id: 'c04', title: 'The workshop plan', s: ['The workshop is on soldering.', 'Twelve students signed up.', 'We have eight irons.', 'Some irons need new tips.', 'I ordered tips last week.', 'They have not arrived.'] },
+  { id: 'c05', title: 'A client message', s: ['The client sent a message at midnight.', 'The firmware crashed on startup.', 'He had changed the Wi-Fi password.', 'The new password had a space in it.', 'My parser stopped at the space.', 'I fixed the parser in the morning.'] },
+  { id: 'c06', title: 'The thesis meeting', s: ['My supervisor read the draft.', 'He liked the method section.', 'The results section was too short.', 'It had only two figures.', 'He asked for a comparison table.', 'The meeting lasted forty minutes.'] },
+  { id: 'c07', title: 'Morning in the lab', s: ['I arrived at eight.', 'The 3D printer was still running.', 'Someone had started a long print overnight.', 'The print had failed after two hours.', 'Filament was tangled around the nozzle.', 'I cleaned the nozzle before the first class.'] },
+  { id: 'c08', title: 'The wiper motor test', s: ['The wiper motor draws high current.', 'The current spikes at startup.', 'The spike lasts about forty milliseconds.', 'My fuse was rated too low.', 'It blew on the first test.', 'I replaced it with a slow-blow fuse.'] },
+  { id: 'c09', title: 'Reading on the bus', s: ['The bus ride takes forty minutes.', 'I used to scroll my phone.', 'Now I read a book.', 'The book is about writing.', 'I read about ten pages a day.', 'I finished the first chapter yesterday.'] },
+  { id: 'c10', title: 'A failed upload', s: ['The upload failed at 60 percent.', 'The cable was loose.', 'I tried a different port.', 'The upload failed again.', 'The board was in the wrong boot mode.', 'I held the boot button and tried once more.'] }
+];
+
+const SITES = [
+  ['Paul Graham essays (read, copy by hand, or rebuild from your notes)', 'https://paulgraham.com/articles.html'],
+  ['Scribophile critique community', 'https://www.scribophile.com'],
+  ["London Writers' Salon writing sprints (paid)", 'https://londonwriterssalon.com']
+];
+
+const KIND_LABEL = {
+  phase1: 'Daily session', short: 'Short session', franklin1: 'Franklin rebuild, part 1', franklin2: 'Franklin rebuild, part 2',
+  franklin3: 'Franklin rebuild (one sitting)', combining: 'Sentence combining', summary: '100-word summary',
+  paragraph: 'Six-step paragraph', piece: 'Piece session', drill: 'Error drill'
+};
+
+if (typeof module !== 'undefined') module.exports = { ERROR_TYPES, PLAN_ERRORS, PHASES, GATE_TEXT, RULES_TABLE, REVISION_CHECKS, BOOKS, FORMS, TOPICS, COMBINING, SITES, KIND_LABEL };
+
+/* ==== src/models.json ==== */
+const MODELS = [{"id": "franklin-spectator", "author": "Benjamin Franklin", "title": "Autobiography: the Spectator", "year": "1791", "form": "essay", "source": "https://www.gutenberg.org/ebooks/20203", "text": "About this time I met with an odd volume of the Spectator. It was the third. I had never before seen any of them. I bought it, read it over and over, and was much delighted with it. I thought the writing excellent, and wished, if possible, to imitate it. With this view I took some of the papers, and, making short hints of the sentiment in each sentence, laid them by a few days, and then, without looking at the book, try'd to compleat the papers again, by expressing each hinted sentiment at length, and as fully as it had been expressed before, in any suitable words that should come to hand. Then I compared my Spectator with the original, discovered some of my faults, and corrected them.", "words": 129}, {"id": "franklin-method", "author": "Benjamin Franklin", "title": "Autobiography: method in the arrangement of thoughts", "year": "1791", "form": "essay", "source": "https://www.gutenberg.org/ebooks/20203", "text": "Therefore I took some of the tales and turned them into verse; and, after a time, when I had pretty well forgotten the prose, turned them back again. I also sometimes jumbled my collections of hints into confusion, and after some weeks endeavored to reduce them into the best order, before I began to form the full sentences and compleat the paper. This was to teach me method in the arrangement of thoughts. By comparing my work afterwards with the original, I discovered many faults and amended them; but I sometimes had the pleasure of fancying that, in certain particulars of small import, I had been lucky enough to improve the method or the language, and this encouraged me to think I might possibly in time come to be a tolerable English writer, of which I was extremely ambitious.", "words": 139}, {"id": "thoreau-woods", "author": "Henry David Thoreau", "title": "Walden: Where I Lived, and What I Lived For", "year": "1854", "form": "essay", "source": "https://www.gutenberg.org/ebooks/205", "text": "I went to the woods because I wished to live deliberately, to front only the essential facts of life, and see if I could not learn what it had to teach, and not, when I came to die, discover that I had not lived. I did not wish to live what was not life, living is so dear; nor did I wish to practise resignation, unless it was quite necessary. I wanted to live deep and suck out all the marrow of life, to live so sturdily and Spartan-like as to put to rout all that was not life, to cut a broad swath and shave close, to drive life into a corner, and reduce it to its lowest terms.", "words": 120}, {"id": "darwin-bank", "author": "Charles Darwin", "title": "On the Origin of Species: the entangled bank", "year": "1859", "form": "essay", "source": "https://www.gutenberg.org/ebooks/1228", "text": "It is interesting to contemplate an entangled bank, clothed with many plants of many kinds, with birds singing on the bushes, with various insects flitting about, and with worms crawling through the damp earth, and to reflect that these elaborately constructed forms, so different from each other, and dependent on each other in so complex a manner, have all been produced by laws acting around us. These laws, taken in the highest sense, being Growth with Reproduction; Inheritance which is almost implied by reproduction; Variability from the indirect and direct action of the external conditions of life, and from use and disuse; a Ratio of Increase so high as to lead to a Struggle for Life, and as a consequence to Natural Selection, entailing Divergence of Character and the Extinction of less-improved forms.", "words": 133}, {"id": "lincoln-gettysburg", "author": "Abraham Lincoln", "title": "The Gettysburg Address (Bliss copy)", "year": "1863", "form": "essay", "source": "https://www.gutenberg.org/ebooks/4", "text": "Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract.", "words": 139}, {"id": "ohenry-magi", "author": "O. Henry", "title": "The Gift of the Magi (opening)", "year": "1905", "form": "story", "source": "https://www.gutenberg.org/ebooks/7256", "text": "One dollar and eighty-seven cents. That was all. And sixty cents of it was in pennies. Pennies saved one and two at a time by bulldozing the grocer and the vegetable man and the butcher until one's cheeks burned with the silent imputation of parsimony that such close dealing implied. Three times Della counted it. One dollar and eighty-seven cents. And the next day would be Christmas. There was clearly nothing to do but flop down on the shabby little couch and howl. So Della did it. Which instigates the moral reflection that life is made up of sobs, sniffles, and smiles, with sniffles predominating.", "words": 105}, {"id": "chopin-hour", "author": "Kate Chopin", "title": "The Story of an Hour (opening)", "year": "1894", "form": "story", "source": "https://www.gutenberg.org/ebooks/160", "text": "Knowing that Mrs. Mallard was afflicted with a heart trouble, great care was taken to break to her as gently as possible the news of her husband's death. It was her sister Josephine who told her, in broken sentences; veiled hints that revealed in half concealing. Her husband's friend Richards was there, too, near her. It was he who had been in the newspaper office when intelligence of the railroad disaster was received, with Brently Mallard's name leading the list of \"killed.\" He had only taken the time to assure himself of its truth by a second telegram, and had hastened to forestall any less careful, less tender friend in bearing the sad message.", "words": 114}, {"id": "london-fire", "author": "Jack London", "title": "To Build a Fire (opening)", "year": "1908", "form": "story", "source": "https://www.gutenberg.org/ebooks/search/?query=jack+london+lost+face", "text": "Day had broken cold and grey, exceedingly cold and grey, when the man turned aside from the main Yukon trail and climbed the high earth-bank, where a dim and little-travelled trail led eastward through the fat spruce timberland. It was a steep bank, and he paused for breath at the top, excusing the act to himself by looking at his watch. It was nine o'clock. There was no sun nor hint of sun, though there was not a cloud in the sky. It was a clear day, and yet there seemed an intangible pall over the face of things, a subtle gloom that made the day dark, and that was due to the absence of sun.", "words": 116}];
+/* ==== src/logic.js ==== */
+/* logic.js: pure plan rules. No DOM, no storage. Tested headlessly by test/test_logic.js. */
+'use strict';
+
+const L = (() => {
+  /* ---------- dates (local calendar days as 'YYYY-MM-DD') ---------- */
+  const pad = n => String(n).padStart(2, '0');
+  const iso = (d = new Date()) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const toDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d, 12); };
+  const addDays = (s, n) => { const d = toDate(s); d.setDate(d.getDate() + n); return iso(d); };
+  const dow = s => toDate(s).getDay();
+  const daysBetween = (a, b) => Math.round((toDate(b) - toDate(a)) / 864e5);
+  const weekStartOf = (s, ws) => addDays(s, -((dow(s) - (ws || 0) + 7) % 7));
+  const weekIndex = (start, s, ws) => Math.floor(daysBetween(weekStartOf(start, ws), weekStartOf(s, ws)) / 7) + 1;
+  const isWeekend = (s, app) => (app.restDays || []).includes(dow(s));
+  const inWeek = (s, today, ws) => !!s && weekStartOf(s, ws) === weekStartOf(today, ws);
+
+  /* ---------- text ---------- */
+  const countWords = t => { const m = (t || '').trim().match(/\S+/g); return m ? m.length : 0; };
+  const ABBR = /(?:^|\s)(?:Mr|Mrs|Ms|Dr|St|Prof|vs|etc|e\.g|i\.e|No|Fig|approx)\.$/i;
+  function splitSentences(text) {
+    const parts = (text || '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?]["'”’)\]]*)\s+/);
+    const out = [];
+    for (const p of parts) {
+      if (!p) continue;
+      const prev = out[out.length - 1];
+      if (prev && (ABBR.test(prev) || /^[a-z]/.test(p))) out[out.length - 1] = prev + ' ' + p;
+      else out.push(p);
+    }
+    return out;
+  }
+  /* Phase 1: 10-20 words per sentence. From Phase 2: nothing past 25. */
+  function sentenceReport(text, phase) {
+    const max = phase <= 1 ? 20 : 25, min = phase <= 1 ? 10 : 0;
+    return splitSentences(text).map(t => { const w = countWords(t); return { text: t, words: w, long: w > max, short: min > 0 && w < min }; });
+  }
+  /* The sentence that contains character position `at`. */
+  function sentenceAround(text, at) {
+    const t = text || ''; if (at < 0 || at > t.length) return '';
+    let a = at; while (a > 0 && !/[.!?\n]/.test(t[a - 1])) a--;
+    let b = at; while (b < t.length && !/[.!?\n]/.test(t[b])) b++;
+    return t.slice(a, Math.min(t.length, b + 1)).trim();
+  }
+
+  /* ---------- session step flows (minutes) ---------- */
+  const FLOWS = {
+    phase1: [['copy', 5], ['write', 15, 1], ['check', 5]],
+    short: [['write', 10, 1], ['check', 3]],
+    franklin1: [['read', 5], ['notes', 20]],
+    franklin2: [['order', 3], ['rebuild', 17], ['compare', 5]],
+    franklin3: [['notes', 8], ['rebuild', 12], ['compare', 5]],
+    combining: [['combine', 25]],
+    summary: [['source', 3], ['write', 17], ['check', 5]],
+    paragraph: [['point', 3], ['notes', 5], ['order', 2], ['draft', 10], ['link', 3], ['close', 2]],
+    piece: [['work', 25]],
+    drill: [['study', 5], ['practice', 15], ['check', 5]]
+  };
+  function flowFor(kind, data) {
+    data = data || {};
+    let f = (FLOWS[kind] || []).map(([id, min, sprint]) => ({ id, min, sprint: !!sprint }));
+    if (kind === 'franklin2' && !data.shuffled) f = f.filter(s => s.id !== 'order');
+    if (kind === 'piece' && data.minutes) f = [{ id: 'work', min: data.minutes, sprint: false }];
+    return f;
+  }
+  /* The text a session produced, for word counts and review. */
+  function mainText(s) {
+    const d = s.data || {};
+    if (s.kind === 'combining') return (d.ways || []).join('\n\n');
+    if (s.kind === 'paragraph') return [d.draft || '', d.close || ''].filter(Boolean).join(' ');
+    if (s.kind === 'franklin1') return '';
+    return d.text || '';
+  }
+
+  /* ---------- sprint: "without stopping" ---------- */
+  function sprintClean(sp, pauseLimit) {
+    return !!sp && !sp.interrupted && (sp.paused || 0) === 0 && (sp.maxPause || 0) <= (pauseLimit || 60);
+  }
+  function sprintPasses(sp, pauseLimit) {
+    return sprintClean(sp, pauseLimit) && sp.words >= 150 && sp.seconds <= 15 * 60 + 5;
+  }
+
+  /* ---------- models ---------- */
+  function nextModel(models, form, sessions) {
+    const pool = models.filter(m => (m.form || 'essay') === form);
+    const list = pool.length ? pool : models;
+    const used = {};
+    for (const s of sessions) if (s.data && s.data.modelId && (s.kind === 'franklin1' || s.kind === 'franklin3')) used[s.data.modelId] = (used[s.data.modelId] || 0) + 1;
+    let best = null;
+    for (const m of list) if (!best || (used[m.id] || 0) < (used[best.id] || 0)) best = m;
+    return best;
+  }
+  /* Deterministic shuffle so a reload shows the same scrambled order. */
+  function shuffleOrder(n, seed) {
+    let h = 2166136261; for (const c of String(seed)) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+    const a = [...Array(n).keys()];
+    for (let i = n - 1; i > 0; i--) { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; const j = h % (i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+    if (n > 1 && a.every((v, i) => v === i)) a.push(a.shift());
+    return a;
+  }
+
+  /* ---------- queue: what to do today ---------- */
+  const byTime = (a, b) => (a.finishedAt || a.startedAt || '').localeCompare(b.finishedAt || b.startedAt || '');
+  function pendingNotes(sessions) {
+    const rebuilt = new Set(sessions.filter(s => s.kind === 'franklin2' && s.status === 'done').map(s => s.data && s.data.notesId));
+    return sessions.filter(s => s.kind === 'franklin1' && s.status === 'done' && !rebuilt.has(s.id)).sort(byTime)[0] || null;
+  }
+  function openPiece(pieces, phaseMin, phaseMax) {
+    return pieces.filter(p => p.phase >= phaseMin && p.phase <= phaseMax && p.status !== 'done').sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))[0] || null;
+  }
+  const P2_CYCLE = ['franklin1', 'combining', 'summary', 'paragraph'];
+  const P3_SLOTS = ['piece', 'franklin3', 'piece', 'combining', 'piece'];
+
+  function nextAction(app, sessions, pieces, models, today) {
+    const phase = app.phase || 1;
+    const all = sessions.slice().sort(byTime);
+    const active = all.filter(s => s.status === 'active').pop();
+    if (active) return { kind: active.kind, resume: active.id, title: 'Finish your ' + active.kind + ' session', why: 'You started this and did not finish it.', minutes: 0 };
+    const done = all.filter(s => s.status === 'done');
+    const weekend = isWeekend(today, app);
+    const ws = app.weekStart || 0;
+    const doneToday = done.filter(s => s.date === today && s.kind !== 'short' && s.kind !== 'drill');
+    const form = app.form || 'essay';
+    const franklinData = (kind, extra) => {
+      const m = nextModel(models, phase >= 3 ? form : 'essay', all);
+      return Object.assign({ modelId: m && m.id }, extra || {});
+    };
+    let a;
+    if (phase === 1) {
+      a = weekend ? { kind: null, title: 'Weekend', why: 'Phase 1 runs on 5 weekdays. Read for 15 minutes today.', minutes: 0 }
+                  : { kind: 'phase1', title: 'Copy, write, check', why: 'Copy 5 minutes, write 15 without stopping, check 5.', minutes: 25 };
+    } else if (phase === 2 && weekend) {
+      const p = openPiece(pieces, 2, 2);
+      const st = p ? p.status : 'plan';
+      a = { kind: 'piece', pieceId: p ? p.id : null, newPiece: !p, title: (st === 'revise' ? 'Revise' : 'Plan and draft') + ' the weekend piece',
+            why: st === 'revise' ? 'Run the revision checklist on this week’s piece.' : 'One 400-600 word piece: plan and draft today, revise tomorrow.', minutes: 60 };
+    } else if (phase === 2) {
+      const p2 = done.filter(s => s.phase === 2 && (P2_CYCLE.includes(s.kind) || s.kind === 'franklin2'));
+      const pend = pendingNotes(done);
+      const last = p2[p2.length - 1];
+      if (pend && pend.date < today && last && last.kind !== 'franklin1') {
+        a = { kind: 'franklin2', title: 'Rebuild from your notes', why: 'Rebuild the paragraph from the notes you took on ' + pend.date + ', then compare.', minutes: 25,
+              data: { notesId: pend.id, modelId: pend.data.modelId, shuffled: !!pend.data.shuffled } };
+      } else {
+        const count = p2.filter(s => s.kind !== 'franklin2').length;
+        let pick = P2_CYCLE[count % 4];
+        if (pick === 'franklin1' && pend) pick = 'combining';
+        const f1count = done.filter(s => s.kind === 'franklin1' && s.phase === 2).length;
+        const map = {
+          franklin1: { title: 'Take notes on a model paragraph', why: 'Write a 3-5 word note for each sentence, then put the original away.', data: franklinData('franklin1', { shuffled: f1count % 2 === 1 }) },
+          combining: { title: 'Sentence combining', why: 'Join 6 short sentences into 2-3 longer ones, three different ways.' },
+          summary: { title: '100-word summary', why: 'Summarize an article you read this week in 100 words.' },
+          paragraph: { title: 'One paragraph in six steps', why: 'Point, notes, order, draft, link, close.' }
+        };
+        a = Object.assign({ kind: pick, minutes: 25 }, map[pick]);
+      }
+    } else {
+      if (weekend) {
+        a = { kind: null, title: 'Weekend', why: 'Read for 15 minutes. Pieces and drills run on weekdays.', minutes: 0 };
+      } else {
+        const weekDone = done.filter(s => s.phase === phase && inWeek(s.date, today, ws) && !isWeekend(s.date, app) && s.kind !== 'short' && s.kind !== 'drill' && s.date !== today);
+        const slot = weekDone.length;
+        let pick = phase === 3 ? (P3_SLOTS[slot] || 'piece')
+                               : (slot >= 1 && !weekDone.some(s => s.kind === 'franklin3') ? 'franklin3' : 'piece');
+        if (pick === 'piece') {
+          const p = openPiece(pieces, 3, 4);
+          a = { kind: 'piece', pieceId: p ? p.id : null, newPiece: !p, minutes: 25,
+                title: p ? 'Work on "' + (p.title || 'Untitled') + '"' : 'Start this cycle’s piece',
+                why: phase === 3 ? 'Week A: plan and draft. Week B: revise, get critique, revise again.' : 'Weeks 1-2 draft, week 3 critique and revise, week 4 publish.' };
+        } else if (pick === 'franklin3') {
+          a = { kind: 'franklin3', minutes: 25, title: 'Franklin rebuild in one sitting', why: '8 minutes of notes, 12 to rebuild, 5 to compare.', data: franklinData('franklin3') };
+        } else {
+          a = { kind: 'combining', minutes: 25, title: 'Sentence combining', why: 'Join 6 short sentences into 2-3 longer ones, three different ways.' };
+        }
+      }
+    }
+    a.doneToday = doneToday.length > 0;
+    return a;
+  }
+
+  /* ---------- pieces ---------- */
+  function stagesFor(phase) {
+    if (phase <= 2) return ['plan', 'draft', 'revise', 'done'];
+    if (phase === 3) return ['plan', 'draft', 'revise', 'feedback', 'revise2', 'done'];
+    return ['plan', 'draft', 'revise', 'feedback', 'revise2', 'publish', 'done'];
+  }
+  function pieceTarget(piece, forms) {
+    if (piece.phase <= 2) return [400, 600];
+    const f = forms[piece.form] || forms.essay; return [f.min, f.max];
+  }
+  const readers = p => new Set((p.feedback || []).map(f => (f.by || '').trim().toLowerCase()).filter(Boolean)).size;
+  /* Reasons the piece cannot leave its current stage. Empty = may advance. */
+  function stageBlockers(piece, checkIds) {
+    const b = [];
+    switch (piece.status) {
+      case 'plan':
+        if (!(piece.plan && piece.plan.point && piece.plan.point.trim())) b.push('Write the one point the piece makes.');
+        if (!(piece.plan && piece.plan.reader && piece.plan.reader.trim())) b.push('Name the reader.');
+        break;
+      case 'draft': if (countWords(piece.text) < 50) b.push('Draft the piece first.'); break;
+      case 'revise': for (const id of checkIds) if (!(piece.checks || {})[id]) { b.push('Tick every item on the revision checklist.'); break; } break;
+      case 'feedback':
+        if (readers(piece) < 2) b.push('Record feedback from at least 2 readers.'); break;
+      case 'revise2': {
+        const v = (piece.versions || []).filter(x => x.label === 'feedback').pop();
+        if (v && v.text === piece.text) b.push('Revise the text using the feedback.');
+        break;
+      }
+      case 'publish': if (!(piece.publishedUrl || '').trim()) b.push('Add the link where it was published.'); break;
+    }
+    return b;
+  }
+  function advancePiece(piece, checkIds, nowIso) {
+    if (stageBlockers(piece, checkIds).length) return piece;
+    const st = stagesFor(piece.phase); const i = st.indexOf(piece.status);
+    if (i < 0 || i >= st.length - 1) return piece;
+    const next = st[i + 1];
+    const p = JSON.parse(JSON.stringify(piece));
+    p.versions = p.versions || [];
+    if (piece.status !== 'plan') p.versions.push({ label: piece.status === 'revise' && next === 'feedback' ? 'feedback' : piece.status, date: nowIso, text: p.text });
+    p.status = next; p.words = countWords(p.text);
+    if (next === 'done') p.finishedAt = nowIso;
+    return p;
+  }
+
+  /* ---------- error log ---------- */
+  const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  function errorId(type, wrote) {
+    let h = 5381; for (const c of norm(type) + '|' + norm(wrote)) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0;
+    return 'e' + h.toString(36);
+  }
+  /* One row per distinct wrong form; each occurrence adds a date. Returns the new row. */
+  function logError(existing, e) {
+    const id = errorId(e.type, e.wrote);
+    const row = existing ? JSON.parse(JSON.stringify(existing)) : { id, type: e.type, wrote: e.wrote.trim(), correct: '', by: e.by, date: e.date, dates: [] };
+    row.dates.push(e.date);
+    if (e.correct && e.correct.trim()) row.correct = e.correct.trim();
+    return row;
+  }
+  function errorTypeCounts(errors) {
+    const m = {};
+    for (const e of errors) { const t = m[e.type] || (m[e.type] = { type: e.type, count: 0, rows: 0 }); t.count += (e.dates || []).length; t.rows++; }
+    return Object.values(m).sort((a, b) => b.count - a.count || a.type.localeCompare(b.type));
+  }
+  const computeTop3 = errors => errorTypeCounts(errors).filter(t => t.type !== 'Other').slice(0, 3).map(t => t.type);
+  function drillTargets(errors, sessions) {
+    return errorTypeCounts(errors).filter(t => t.count >= 3).map(t => ({
+      type: t.type, count: t.count,
+      drills: sessions.filter(s => s.kind === 'drill' && s.status === 'done' && s.data && s.data.type === t.type).length
+    }));
+  }
+
+  /* ---------- gates ---------- */
+  function top3Rate(top3, sessions, pieces) {
+    const items = sessions.filter(s => s.phase === 2 && s.reviewedAt && s.status === 'done')
+      .concat(pieces.filter(p => p.phase === 2 && p.reviewedAt))
+      .sort((a, b) => b.reviewedAt.localeCompare(a.reviewedAt));
+    let words = 0; const counts = {}; for (const t of top3) counts[t] = 0;
+    for (const it of items) {
+      if (words >= 900) break;
+      words += it.reviewedWords || it.words || 0;
+      for (const m of it.marks || []) if (m.by === 'claude' && m.type in counts) counts[m.type]++;
+    }
+    const perType = top3.map(t => ({ type: t, count: counts[t], per300: words ? counts[t] / words * 300 : 0 }));
+    return { words, perType, met: words >= 900 && top3.length > 0 && perType.every(x => x.per300 <= 1) };
+  }
+  function evaluateGates(app, sessions, pieces, errors, critiques) {
+    const done = sessions.filter(s => s.status === 'done');
+    const n1 = done.filter(s => s.kind === 'phase1').length;
+    let best = 0;
+    for (const s of done) { const sp = s.data && s.data.sprint; if (sprintClean(sp, app.pauseLimit) && sp.seconds <= 905) best = Math.max(best, sp.words || 0); }
+    const recurring = errorTypeCounts(errors).filter(t => t.count >= 2).length;
+    const g1 = [
+      { label: '15 sessions done', have: n1, need: 15 },
+      { label: '150 words in 15 minutes without stopping', have: best, need: 150 },
+      { label: '4 error types seen at least twice', have: recurring, need: 4 }
+    ];
+    const rebuilds = done.filter(s => s.kind === 'franklin2' && s.phase >= 2 && s.data && s.data.keptAll).length;
+    const weekendPieces = pieces.filter(p => p.phase === 2 && p.status === 'done').length;
+    const rate = top3Rate(app.top3 || [], sessions, pieces);
+    const g2 = [
+      { label: '6 Franklin rebuilds that keep every idea', have: rebuilds, need: 6 },
+      { label: '8 weekend pieces finished and revised', have: weekendPieces, need: 8 },
+      { label: 'Top 3 errors at most once per 300 words', have: rate.words, need: 900, met: rate.met, rate }
+    ];
+    const finished = pieces.filter(p => p.phase >= 3 && p.status === 'done' && (p.words || countWords(p.text)) >= 800);
+    const g3 = [
+      { label: '3 finished pieces of 800+ words', have: finished.length, need: 3 },
+      { label: 'Each revised after feedback from 2+ readers', have: finished.filter(p => readers(p) >= 2).length, need: 3 },
+      { label: '5 critiques written for other writers', have: critiques.length, need: 5 }
+    ];
+    const fin = items => { for (const i of items) if (i.met === undefined) i.met = i.have >= i.need; return { items, met: items.every(i => i.met) }; };
+    return { 1: fin(g1), 2: fin(g2), 3: fin(g3) };
+  }
+
+  /* ---------- reviews ---------- */
+  function reviewsThisWeek(app, sessions, pieces, today) {
+    return sessions.concat(pieces).filter(x => x.reviewedAt && inWeek(x.reviewedAt.slice(0, 10), today, app.weekStart || 0)).length;
+  }
+  function reviewPrompt(text, top3, types) {
+    return 'You are marking a draft written by an adult who is rebuilding their English writing without AI help.\n' +
+      'Rules you must follow:\n' +
+      '- Point at problems only. Never rewrite or correct anything, never suggest replacement words, and never write the corrected form anywhere in your reply.\n' +
+      '- "quote" is copied exactly, character for character, from the draft: the shortest span that contains the problem, at most 12 words.\n' +
+      '- "type" is exactly one of: ' + types.join('; ') + '.\n' +
+      '- "hint" is one short question that helps the writer find the fix themselves without giving it.\n' +
+      '- "note" states the general grammar rule in one sentence, using a different example from the draft.\n' +
+      '- Grammar, spelling, punctuation and usage only; ignore style. At most 12 marks, most important first.\n' +
+      (top3 && top3.length ? '- The writer is working on: ' + top3.join(', ') + '. Mark every instance of these.\n' : '') +
+      'Reply with only a JSON array such as [{"quote":"a examples","type":"Article with a plural","hint":"Can a or an go before a plural noun?","note":"A and an go only before singular countable nouns, as in a cat but cats."}]. Reply [] if there are no problems.\n\n' +
+      'Draft:\n"""\n' + text + '\n"""';
+  }
+  const clip = (s, n) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
+  function validateMarks(raw, text, types) {
+    if (!Array.isArray(raw)) return [];
+    const used = new Set(), out = [];
+    for (const m of raw.slice(0, 20)) {
+      if (!m || typeof m.quote !== 'string' || !m.quote.trim() || m.quote.length > 240) continue;
+      let at = text.indexOf(m.quote);
+      while (at >= 0 && used.has(at)) at = text.indexOf(m.quote, at + 1);
+      if (at < 0) continue;
+      used.add(at);
+      out.push({ quote: m.quote, at, type: types.includes(m.type) ? m.type : 'Other', hint: clip(m.hint, 300), by: 'claude', fixed: false, fix: '', tries: 0, note: clip(m.note, 300), errId: '' });
+    }
+    return out.sort((a, b) => a.at - b.at);
+  }
+  function repairPrompt(sentence, quote, type, fix) {
+    return 'A learner wrote this sentence: "' + sentence + '"\n' +
+      'The part "' + quote + '" was marked as: ' + type + '.\n' +
+      'They propose replacing "' + quote + '" with: "' + fix + '"\n' +
+      'Decide whether the sentence is correct, natural English with that replacement. Never give the correct answer or any replacement words. ' +
+      'If it is wrong, give one short question that points toward the problem without revealing the answer.\n' +
+      'Reply with only JSON: {"ok": true, "hint": ""} or {"ok": false, "hint": "..."}';
+  }
+  function validateRepair(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    return { ok: raw.ok === true, hint: clip(raw.hint, 300) };
+  }
+  /* Outside the Claude viewer: the same prompt is copied to a Claude chat and the reply pasted back. */
+  function parsePastedMarks(pasted, text, types) {
+    const s = pasted || '', a = s.indexOf('['), b = s.lastIndexOf(']');
+    if (a < 0 || b <= a) return null;
+    try { return validateMarks(JSON.parse(s.slice(a, b + 1)), text, types); } catch (e) { return null; }
+  }
+
+  /* ---------- weekly tracker ---------- */
+  function weekRows(app, sessions, errors, today) {
+    const ws = app.weekStart || 0, start = app.startDate || today;
+    const n = Math.max(1, weekIndex(start, today, ws)), base = weekStartOf(start, ws), rows = [];
+    const done = sessions.filter(s => s.status === 'done');
+    for (let w = 1; w <= n; w++) {
+      const from = addDays(base, (w - 1) * 7), to = addDays(from, 6);
+      const ss = done.filter(s => s.date >= from && s.date <= to);
+      const days = new Set(ss.filter(s => s.kind !== 'drill').map(s => s.date)).size;
+      const types = {};
+      for (const e of errors) for (const d of e.dates || []) if (d >= from && d <= to) types[e.type] = (types[e.type] || 0) + 1;
+      const common = Object.entries(types).sort((a, b) => b[1] - a[1])[0];
+      rows.push({ week: w, from, to, sessions: days, words: ss.reduce((t, s) => t + (s.words || 0), 0), common: common ? common[0] + ' (' + common[1] + ')' : '' });
+    }
+    return rows;
+  }
+  function daysSinceLast(sessions, today) {
+    const d = sessions.filter(s => s.status === 'done').map(s => s.date).sort().pop();
+    return d ? daysBetween(d, today) : null;
+  }
+
+  return { iso, addDays, dow, daysBetween, weekStartOf, weekIndex, isWeekend, inWeek, countWords, splitSentences, sentenceReport, sentenceAround,
+    FLOWS, flowFor, mainText, sprintClean, sprintPasses, nextModel, shuffleOrder, pendingNotes, nextAction, stagesFor, pieceTarget, readers,
+    stageBlockers, advancePiece, norm, errorId, logError, errorTypeCounts, computeTop3, drillTargets, top3Rate, evaluateGates,
+    reviewsThisWeek, reviewPrompt, validateMarks, repairPrompt, validateRepair, parsePastedMarks, weekRows, daysSinceLast };
+})();
+
+if (typeof module !== 'undefined') module.exports = L;
+
+/* ==== src/migrate.js ==== */
+/* migrate.js: pure import of the two retired AI Studio apps' data.
+   Accepts either studio's "Export" JSON, or a raw localStorage dump of their keys.
+   readBundle() normalises, mergePlan() returns the writes to apply. Tested by test/test_logic.js. */
+'use strict';
+
+const M = (() => {
+  const L_ = (typeof L !== 'undefined') ? L : require('./logic.js');
+  const C_ = (typeof ERROR_TYPES !== 'undefined') ? { ERROR_TYPES, BOOKS } : require('./content.js');
+  const safeId = s => String(s || '').replace(/[^A-Za-z0-9_\-.~:@+]/g, '-').slice(0, 120) || 'x';
+  const day = s => (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}/.test(s)) ? s.slice(0, 10) : null;
+  const parseMaybe = v => { if (typeof v !== 'string') return v; try { return JSON.parse(v); } catch (e) { return v; } };
+
+  function mapType(t) {
+    const s = (t || '').toLowerCase();
+    if (C_.ERROR_TYPES.includes(t)) return t;
+    const rules = [
+      [/article.*plural|plural.*article/, 'Article with a plural'], [/missing.*article|article/, 'Missing article'],
+      [/agreement/, 'Subject-verb agreement'], [/tense/, 'Verb tense'], [/infinitive|"to"|\bto\b/, 'Missing "to" before a verb'],
+      [/adjective/, 'Noun used as an adjective'], [/spell/, 'Spelling'], [/preposition/, 'Preposition'],
+      [/run-?on|splice/, 'Run-on or comma splice'], [/fragment/, 'Sentence fragment'], [/punctuat|comma/, 'Punctuation'],
+      [/capital/, 'Capitalization'], [/word order|order/, 'Word order'], [/plural|singular/, 'Singular or plural noun'],
+      [/word choice|diction|vocab|idiom|collocation/, 'Word choice'], [/verb form|participle|gerund/, 'Verb form']
+    ];
+    for (const [re, v] of rules) if (re.test(s)) return v;
+    return 'Other';
+  }
+  const markBy = b => (b === 'self' || b === 'manual') ? 'self' : 'ai';
+  const mapMark = m => ({ quote: m.quote || '', at: typeof m.at === 'number' ? m.at : -1, type: mapType(m.type), hint: m.hint || '', by: markBy(m.by),
+    fixed: !!m.fixed, fix: m.fix || '', tries: m.tries || 0, note: m.note || '', errId: '' });
+
+  /* ---------- Recovery Studio ---------- */
+  function fromRecovery(d) {
+    const out = blank();
+    const a = d.appState || {};
+    out.app = {
+      startDate: day(a.startDate), phase: a.phase, phaseStarted: a.phaseStarted, weekStart: a.weekStart, restDays: a.restDays,
+      anchorRoutine: a.anchorRoutine, anchorPlace: a.anchorPlace, noDelete: a.noDelete, pauseLimit: a.pauseLimit,
+      reviewsPerWeek: a.reviewsPerWeek, sound: a.sound, publishPlace: a.publishPlace,
+      form: a.form ? (/story/i.test(a.form) ? 'story' : 'essay') : undefined
+    };
+    for (const s of d.sessions || []) {
+      const data = Object.assign({}, s.data || {});
+      if (data.draftText && !data.text) data.text = data.draftText;
+      delete data.draftText;
+      out.sessions.push({ id: 'r-' + safeId(s.id), kind: s.kind, phase: s.phase || 1, date: day(s.date) || day(s.startedAt), status: s.status === 'done' ? 'done' : 'done',
+        startedAt: s.startedAt || '', finishedAt: s.finishedAt || s.startedAt || '', step: 0, stepElapsed: 0, seconds: s.seconds || 0,
+        words: s.words || L_.countWords(data.text), data, marks: (s.marks || []).map(mapMark), reviewed: !!s.reviewed, reviewedAt: '', imported: 'recovery' });
+    }
+    for (const p of d.pieces || []) {
+      out.pieces.push({ id: 'r-' + safeId(p.id), phase: p.phase || 2, form: /story/i.test(p.form || '') ? 'story' : 'essay', title: p.title || '',
+        status: L_.stagesFor(p.phase || 2).includes(p.status) ? p.status : 'draft', createdAt: p.createdAt || '', finishedAt: p.finishedAt || '',
+        plan: Object.assign({ point: '', reader: '', notes: '' }, p.plan || {}), text: p.text || '', versions: p.versions || [], checks: p.checks || {},
+        feedback: p.feedback || [], postedUrl: p.postedUrl || '', publishedUrl: p.publishedUrl || '', words: p.words || L_.countWords(p.text),
+        marks: (p.marks || []).map(mapMark), reviewed: !!p.reviewed, reviewedAt: '', imported: 'recovery' });
+    }
+    for (const e of d.errors || []) {
+      const date = day(e.date) || day((e.dates || [])[0]);
+      if (!e.wrote || !date) continue;
+      out.errors.push({ key: 'r:' + e.id, type: mapType(e.type), origType: e.type, wrote: e.wrote, correct: e.correct || '',
+        by: e.by === 'plan' ? 'plan' : markBy(e.by), dates: (e.dates && e.dates.length ? e.dates.map(day).filter(Boolean) : [date]) });
+    }
+    for (const m of d.customModels || []) {
+      if (!m.text) continue;
+      out.models.push({ id: 'r-' + safeId(m.id), author: m.author || '', title: m.title || '', year: m.year || '', form: 'essay', source: m.source || '', text: m.text, words: L_.countWords(m.text) });
+    }
+    return out;
+  }
+
+  /* ---------- Unaided Studio ---------- */
+  const U_KIND = { phase1_daily: 'phase1', franklin_notes: 'franklin1', franklin_rebuild: 'franklin2', sentence_combining: 'combining',
+    summary_100w: 'summary', six_step_paragraph: 'paragraph', weekend_deep: 'piece', phase3_essay: 'piece', free_write: 'short' };
+  const U_STATUS = { draft: 'draft', under_critique: 'feedback', revised: 'revise2', published: 'done' };
+  function fromUnaided(d) {
+    const out = blank();
+    const h = d.habitAnchor || {};
+    out.app = { phase: Number(d.currentPhase) || undefined };
+    if (h.anchorSet) { out.app.anchorRoutine = h.routine; out.app.anchorPlace = h.place; }
+    for (const s of d.sessions || []) {
+      const date = day(s.date); if (!date) continue;
+      const kind = U_KIND[s.drillType] || 'short';
+      const text = s.content || '';
+      const marks = [];
+      for (const q of s.underlinedSnippets || []) if (q && text.includes(q)) marks.push({ quote: q, at: text.indexOf(q), type: 'Other', hint: '', by: 'self', fixed: false, fix: '', tries: 0, note: '', errId: '' });
+      for (const e of s.aiErrorsFound || []) if (e.snippet && text.includes(e.snippet)) marks.push({ quote: e.snippet, at: text.indexOf(e.snippet), type: mapType(e.type), hint: e.hintQuestion || '', by: 'ai', fixed: false, fix: '', tries: 0, note: e.ruleExplanation || '', errId: '' });
+      const data = kind === 'combining' ? { ways: [text] } : kind === 'paragraph' ? { draft: text } : { text };
+      data.title = s.title || '';
+      out.sessions.push({ id: 'u-' + safeId(s.id), kind, phase: Number(s.phase) || 1, date, status: 'done', startedAt: s.date, finishedAt: s.date, step: 0, stepElapsed: 0,
+        seconds: Math.round((s.durationMinutes || 0) * 60), words: s.wordCount || L_.countWords(text), data, marks, reviewed: marks.some(m => m.by === 'ai'), reviewedAt: '', imported: 'unaided' });
+    }
+    for (const f of d.franklinSessions || []) {
+      const date = day(f.date); if (!date || !f.originalText) continue;
+      const mid = 'u-model-' + safeId(f.id);
+      out.models.push({ id: mid, author: f.sourceAuthor || '', title: f.modelTitle || 'Imported model', year: '', form: 'essay', source: '', text: f.originalText, words: L_.countWords(f.originalText) });
+      const n1 = 'u-f1-' + safeId(f.id);
+      out.sessions.push({ id: n1, kind: 'franklin1', phase: 2, date, status: 'done', startedAt: f.date, finishedAt: f.date, step: 0, stepElapsed: 0, seconds: 0, words: 0,
+        data: { modelId: mid, notes: f.sentenceNotes || [], shuffled: !!f.shuffled }, marks: [], reviewed: false, reviewedAt: '', imported: 'unaided' });
+      if (f.rebuiltText) out.sessions.push({ id: 'u-f2-' + safeId(f.id), kind: 'franklin2', phase: 2, date, status: f.completed ? 'done' : 'done', startedAt: f.date, finishedAt: f.date,
+        step: 0, stepElapsed: 0, seconds: 0, words: L_.countWords(f.rebuiltText),
+        data: { notesId: n1, modelId: mid, text: f.rebuiltText, diffs: f.differencesNoted || ['', ''], keptAll: false, shuffled: !!f.shuffled }, marks: [], reviewed: false, reviewedAt: '', imported: 'unaided' });
+    }
+    for (const e of d.errorLog || []) {
+      const date = day(e.dateAdded); if (!e.whatIWrote || !date) continue;
+      out.errors.push({ key: 'u:' + e.id, type: mapType(e.errorType), origType: e.errorType, wrote: e.whatIWrote, correct: e.correctForm || '', by: 'self',
+        dates: Array(Math.max(1, Number(e.frequency) || 1)).fill(date) });
+    }
+    for (const p of d.finishedPieces || []) {
+      const phase = Number(p.phase) || 3;
+      out.pieces.push({ id: 'u-' + safeId(p.id), phase, form: p.form === 'short_story' ? 'story' : 'essay', title: p.title || '', status: U_STATUS[p.draftStatus] || 'draft',
+        createdAt: p.dateCreated || '', finishedAt: p.datePublished || '', plan: { point: '', reader: '', notes: '' }, text: p.content || '', versions: [], checks: {},
+        feedback: (p.critiques || []).map(c => ({ by: c.reviewerName || 'Reader', notes: [c.keyFeedback, c.revisionMade ? 'Revision: ' + c.revisionMade : ''].filter(Boolean).join(' '), date: day(c.date) || '' })),
+        postedUrl: '', publishedUrl: p.publishedUrl || '', words: p.wordCount || L_.countWords(p.content), marks: [], reviewed: false, reviewedAt: '', imported: 'unaided' });
+    }
+    for (const r of d.readingItems || []) {
+      const b = C_.BOOKS.find(x => r.bookTitle && x.title.toLowerCase().includes(String(r.bookTitle).toLowerCase().slice(0, 12)));
+      if (b && (r.completed || r.notes)) out.books[b.id] = { read: !!r.completed, notes: r.notes || '' };
+    }
+    return out;
+  }
+
+  function blank() { return { app: {}, sessions: [], pieces: [], errors: [], models: [], books: {}, sources: [] }; }
+  function combine(a, b) {
+    const o = blank();
+    for (const k of ['sessions', 'pieces', 'errors', 'models', 'sources']) o[k] = a[k].concat(b[k]);
+    o.books = Object.assign({}, a.books, b.books);
+    o.app = Object.assign({}, b.app, a.app);   // Recovery settings win; phase handled in mergePlan
+    o.app.phase = Math.max(a.app.phase || 0, b.app.phase || 0) || undefined;
+    return o;
+  }
+
+  /* Normalise anything the user pastes or uploads. Returns a bundle or throws a readable Error. */
+  function readBundle(input) {
+    let d = parseMaybe(input);
+    if (!d || typeof d !== 'object') throw new Error('That is not JSON from either studio.');
+    let out = blank();
+    const rawRec = d.english_writing_recovery_data_v2;
+    const hasUnaidedKeys = Object.keys(d).some(k => k.startsWith('unaided_'));
+    if (rawRec || hasUnaidedKeys) {
+      if (rawRec) { out = combine(out, fromRecovery(parseMaybe(rawRec))); out.sources.push('Recovery Studio (browser data)'); }
+      if (hasUnaidedKeys) {
+        const u = { habitAnchor: parseMaybe(d.unaided_habit_anchor_v1), currentPhase: parseMaybe(d.unaided_current_phase_v1), sessions: parseMaybe(d.unaided_sessions_v1),
+          errorLog: parseMaybe(d.unaided_error_log_v1), franklinSessions: parseMaybe(d.unaided_franklin_v1), finishedPieces: parseMaybe(d.unaided_finished_pieces_v1),
+          readingItems: parseMaybe(d.unaided_reading_items_v1) };
+        out = combine(out, fromUnaided(u)); out.sources.push('Unaided Studio (browser data)');
+      }
+    } else if (d.appState && Array.isArray(d.sessions)) { out = fromRecovery(d); out.sources.push('Recovery Studio export'); }
+    else if ('errorLog' in d || 'habitAnchor' in d || 'finishedPieces' in d) { out = fromUnaided(d); out.sources.push('Unaided Studio export'); }
+    else throw new Error('No Recovery Studio or Unaided Studio data found in that file.');
+    return out;
+  }
+
+  /* Given the current store and a bundle, list the writes. Re-importing the same file adds nothing twice. */
+  function mergePlan(cur, bundle, today) {
+    const writes = [];
+    const app = Object.assign({}, cur.app);
+    const ba = bundle.app || {};
+    if (ba.phase && ba.phase > (app.phase || 1)) { app.phase = ba.phase; app.phaseStarted = Object.assign({}, app.phaseStarted, { [ba.phase]: today }); }
+    if (ba.startDate && (!app.startDate || ba.startDate < app.startDate)) app.startDate = ba.startDate;
+    for (const k of ['anchorRoutine', 'anchorPlace', 'publishPlace']) if (ba[k] && !(app[k] || '').trim()) app[k] = ba[k];
+    app.books = Object.assign({}, bundle.books, app.books);
+    writes.push({ coll: 'state', id: 'app', doc: app });
+    let s = 0, p = 0, m = 0, e = 0;
+    for (const x of bundle.sessions) if (!cur.sessions[x.id] && x.date) { writes.push({ coll: 'sessions', id: x.id, doc: x }); s++; }
+    for (const x of bundle.pieces) if (!cur.pieces[x.id]) { writes.push({ coll: 'pieces', id: x.id, doc: x }); p++; }
+    for (const x of bundle.models) if (!cur.models[x.id]) { writes.push({ coll: 'models', id: x.id, doc: x }); m++; }
+    const rows = Object.assign({}, cur.errors);
+    for (const x of bundle.errors) {
+      const id = L_.errorId(x.type, x.wrote);
+      const row = rows[id] ? JSON.parse(JSON.stringify(rows[id])) : { id, type: x.type, wrote: x.wrote.trim(), correct: '', by: x.by, date: x.dates[0], dates: [], sources: [] };
+      row.sources = row.sources || [];
+      if (row.sources.includes(x.key)) continue;
+      row.sources.push(x.key); row.dates = row.dates.concat(x.dates).sort();
+      if (!row.correct && x.correct) row.correct = x.correct;
+      if (x.origType && x.origType !== x.type) row.origType = x.origType;
+      rows[id] = row; e++;
+    }
+    for (const id of Object.keys(rows)) if (rows[id] !== cur.errors[id]) writes.push({ coll: 'errors', id, doc: rows[id] });
+    return { writes, report: { sources: bundle.sources, sessions: s, pieces: p, models: m, errors: e } };
+  }
+
+  return { readBundle, mergePlan, mapType };
+})();
+
+if (typeof module !== 'undefined') module.exports = M;
+
+/* ==== src/store.js ==== */
+/* store.js: one in-memory state; the artifact database when the viewer serves it, browser storage otherwise.
+   One write in flight per document; a newer write waits for it and then sends the latest copy. */
+'use strict';
+
+const COLLS = ['sessions', 'pieces', 'errors', 'reading', 'critiques', 'models'];
+const LOCAL_KEY = 'ewr.v3';
+
+const Store = {
+  mode: 'loading',          // 'loading' | 'db' | 'local'
+  S: { app: null, sessions: {}, pieces: {}, errors: {}, reading: {}, critiques: {}, models: {} },
+  db: null,
+  status: '',               // shown in the footer
+  readOnly: false,
+  onChange: () => {},
+  _inflight: {}, _again: {}, _localTimer: 0,
+
+  async init() {
+    let db = null;
+    try { if (window.claude && window.claude.use) db = await window.claude.use('db'); } catch (e) { db = null; }
+    if (db) {
+      this.db = db;
+      const ok = await this._loadDb();
+      if (ok) { this.mode = 'db'; return; }
+      this.db = null;
+    }
+    this.mode = 'local';
+    try { const raw = localStorage.getItem(LOCAL_KEY); if (raw) Object.assign(this.S, JSON.parse(raw)); } catch (e) { this.status = 'Browser storage is unavailable here, so nothing will be kept after you close this page.'; }
+  },
+
+  async _loadDb() {
+    const timer = new Promise(r => setTimeout(() => r('timeout'), 10000));
+    const load = (async () => {
+      const st = await this.db.doc('state/app').get();
+      if (st.exists) this.S.app = JSON.parse(JSON.stringify(st.data()));
+      await Promise.all(COLLS.map(async c => {
+        const snap = await this.db.collection(c).get();
+        for (const d of snap.docs) this.S[c][d.id] = JSON.parse(JSON.stringify(d.data()));
+      }));
+      return 'ok';
+    })().catch(e => (e && e.code) || 'error');
+    const r = await Promise.race([load, timer]);
+    if (r === 'ok') return true;
+    this.status = r === 'timeout' ? 'Your saved data could not be reached. Working from this browser until you reload.' : 'Your saved data could not be loaded (' + r + '). Working from this browser.';
+    return false;
+  },
+
+  list(coll) { return Object.values(this.S[coll]); },
+  get(coll, id) { return coll === 'state' ? this.S.app : this.S[coll][id]; },
+
+  /* quiet: save without re-rendering (used while the person is typing). */
+  put(coll, id, doc, quiet) {
+    if (coll === 'state') this.S.app = doc; else this.S[coll][id] = doc;
+    this._persist(coll, id);
+    if (!quiet) this.onChange();
+  },
+  remove(coll, id) {
+    delete this.S[coll][id];
+    if (this.mode === 'db') this.db.doc(coll + '/' + id).delete().catch(e => this._fail(e));
+    else this._saveLocal();
+    this.onChange();
+  },
+
+  _persist(coll, id) {
+    if (this.mode !== 'db') return this._saveLocal();
+    const path = coll === 'state' ? 'state/app' : coll + '/' + id;
+    if (this._inflight[path]) { this._again[path] = true; return; }
+    this._inflight[path] = true;
+    const body = JSON.parse(JSON.stringify(coll === 'state' ? this.S.app : this.S[coll][id]));
+    this.db.doc(path).set(body)
+      .then(() => { if (this.status.startsWith('Not saved')) { this.status = ''; this.onChange(); } })
+      .catch(e => this._fail(e))
+      .finally(() => {
+        this._inflight[path] = false;
+        if (this._again[path]) { this._again[path] = false; this._persist(coll, id); }
+      });
+  },
+  _fail(e) {
+    const code = e && e.code;
+    if (code === 'invalid_argument' && !this.S.app) this.readOnly = true;
+    this.status = code === 'quota_exceeded' ? 'Not saved: the storage for this app is full. Export your data, then delete old sessions.'
+      : code === 'invalid_argument' ? 'Not saved: only the owner of this app can save to it.'
+      : 'Not saved: the connection dropped. Your next change will try again.';
+    this.onChange();
+  },
+  _saveLocal() {
+    clearTimeout(this._localTimer);
+    this._localTimer = setTimeout(() => {
+      try { localStorage.setItem(LOCAL_KEY, JSON.stringify(this.S)); }
+      catch (e) { this.status = 'Not saved: browser storage refused the write.'; this.onChange(); }
+    }, 250);
+  },
+  /* Write browser storage now (page is closing). */
+  flush() {
+    if (this.mode !== 'local' || !this._localTimer) return;
+    clearTimeout(this._localTimer); this._localTimer = 0;
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify(this.S)); } catch (e) { /* nothing more to do while closing */ }
+  },
+  /* Everything, for export. */
+  dump() { return JSON.parse(JSON.stringify({ format: 'english-writing-recovery/v3', exportedAt: new Date().toISOString(), ...this.S })); }
+};
+
+/* ==== src/app_core.js ==== */
+/* app_core.js: DOM helper, app state, timer, session engine, autosave, error logging, Claude calls. */
+'use strict';
+
+/* ---------- tiny DOM helper ---------- */
+const PROPS = new Set(['value', 'checked', 'disabled', 'selected', 'readOnly', 'spellcheck', 'hidden']);
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false && !PROPS.has(k)) continue;
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else if (PROPS.has(k)) el[k] = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
+  return el;
+}
+const clone = o => JSON.parse(JSON.stringify(o));
+const nowIso = () => new Date().toISOString();
+const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const mmss = sec => { const s = Math.max(0, Math.round(sec)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+const fmtDate = d => { if (!d) return ''; const x = L.addDays(d.slice(0, 10), 0); const dt = new Date(x + 'T12:00:00'); return dt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }); };
+
+/* ---------- app state ---------- */
+const App = { today: L.iso(), route: 'today', sel: null, sample: null, downloads: null, notice: '', importPreview: null, busy: {} };
+const app = () => Store.S.app;
+const sessions = () => Store.list('sessions');
+const pieces = () => Store.list('pieces');
+const errorsList = () => Store.list('errors');
+const allModels = () => MODELS.concat(Store.list('models'));
+const modelById = id => allModels().find(m => m.id === id) || MODELS[0];
+const setById = id => COMBINING.find(c => c.id === id) || COMBINING[0];
+const checkIds = REVISION_CHECKS.map(c => c[0]);
+
+function defaultApp(today) {
+  return { startDate: today, phase: 1, phaseStarted: { 1: today }, weekStart: 0, restDays: [5, 6], anchorRoutine: '', anchorPlace: '',
+    noDelete: true, pauseLimit: 60, reviewsPerWeek: 1, sound: true, form: 'essay', publishPlace: '', top3: [], books: {} };
+}
+function saveApp(patch) { Store.put('state', 'app', Object.assign(clone(app()), patch)); }
+function currentTop3() { const a = app(); return a.phase >= 2 && a.top3 && a.top3.length ? a.top3 : L.computeTop3(errorsList()); }
+
+/* ---------- sound and wake lock ---------- */
+let audioCtx = null;
+function chime() {
+  if (!app() || !app().sound) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = audioCtx.currentTime;
+    [660, 880].forEach((f, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + i * 0.18); g.gain.exponentialRampToValueAtTime(0.12, t + i * 0.18 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.18 + 0.5);
+      o.connect(g).connect(audioCtx.destination); o.start(t + i * 0.18); o.stop(t + i * 0.18 + 0.55);
+    });
+  } catch (e) { /* no audio here */ }
+}
+let wakeLock = null;
+async function holdWake(on) {
+  try { if (on && navigator.wakeLock && !wakeLock) wakeLock = await navigator.wakeLock.request('screen'); else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; } } catch (e) { wakeLock = null; }
+}
+
+/* ---------- session engine ---------- */
+function targetText(coll, doc) { return coll === 'pieces' ? doc.text || '' : L.mainText(doc); }
+
+const Engine = {
+  s: null, _iv: 0, _last: 0, _saved: 0, _chimed: false, done: null,
+
+  start(kind, opts) {
+    opts = opts || {};
+    const a = app(), today = L.iso(), data = Object.assign({}, opts.data || {});
+    if (kind === 'phase1' || kind === 'short') data.topic = data.topic || TOPICS[(sessions().length * 7) % TOPICS.length];
+    if (kind === 'phase1' && !data.modelId) data.modelId = L.nextModel(allModels(), 'essay', sessions()).id;
+    if ((kind === 'franklin1' || kind === 'franklin3') && !data.modelId) data.modelId = L.nextModel(allModels(), a.phase >= 3 ? a.form : 'essay', sessions()).id;
+    if (kind === 'combining' && !data.setId) {
+      const used = new Set(sessions().filter(s => s.kind === 'combining').map(s => s.data && s.data.setId));
+      data.setId = (COMBINING.find(c => !used.has(c.id)) || COMBINING[sessions().length % COMBINING.length]).id;
+      data.ways = ['', '', ''];
+    }
+    if (kind === 'franklin2') {
+      const notes = Store.get('sessions', data.notesId);
+      data.notes = notes ? notes.data.notes.slice() : [];
+      if (data.shuffled) data.order = L.shuffleOrder(data.notes.length, data.notesId);
+    }
+    if (kind === 'piece') {
+      let p = data.pieceId && Store.get('pieces', data.pieceId);
+      if (!p) {
+        p = { id: newId('p'), phase: a.phase, form: a.phase >= 3 ? a.form : 'essay', title: '', status: 'plan', createdAt: nowIso(), finishedAt: '',
+          plan: { point: '', reader: '', notes: '' }, text: '', versions: [], checks: {}, feedback: [], postedUrl: '', publishedUrl: '', words: 0, marks: [], reviewed: false, reviewedAt: '' };
+        Store.put('pieces', p.id, p, true);
+      }
+      data.pieceId = p.id; data.minutes = opts.minutes || data.minutes || 25; data.wordsBefore = L.countWords(p.text);
+    }
+    const s = { id: newId('s'), kind, phase: a.phase, date: today, status: 'active', startedAt: nowIso(), finishedAt: '', step: 0, stepElapsed: 0, seconds: 0, words: 0,
+      data, marks: [], reviewed: false, reviewedAt: '' };
+    Store.put('sessions', s.id, s, true);
+    this.open(s, false);
+  },
+
+  open(s, resumed) {
+    this.s = clone(s); this.done = null;
+    if (resumed && this.step() && this.step().sprint) { this.sprint().interrupted = true; this.save(); }
+    this._last = Date.now(); this._chimed = this.remaining() <= 0;
+    clearInterval(this._iv); this._iv = setInterval(() => this.tick(), 1000);
+    holdWake(true); showFocus();
+  },
+  flow() { return L.flowFor(this.s.kind, this.s.data); },
+  step() { return this.flow()[this.s.step]; },
+  remaining() { const st = this.step(); return st ? st.min * 60 - this.s.stepElapsed : 0; },
+  sprint() { return this.s.data.sprint || (this.s.data.sprint = { words: 0, maxPause: 0, paused: 0, interrupted: false, seconds: 0, lastInput: 0 }); },
+
+  tick() {
+    if (!this.s || this.done) return;
+    const now = Date.now(), dt = Math.min(5, (now - this._last) / 1000); this._last = now;
+    this.s.stepElapsed += dt; this.s.seconds += dt;
+    const st = this.step();
+    if (st && st.sprint) {
+      const sp = this.sprint();
+      if (this.remaining() > 0) {   // only the timed window counts toward "without stopping"
+        const idle = this.s.stepElapsed - (sp.lastInput || 0);
+        if (idle > sp.maxPause) sp.maxPause = idle;
+        sp.words = L.countWords(this.s.data.text);
+      }
+    }
+    if (!this._chimed && this.remaining() <= 0) { this._chimed = true; chime(); }
+    Focus.updateClock();
+    if (now - this._saved > 5000) this.save();
+  },
+  /* Called by guarded sprint textareas on every input. */
+  onSprintInput() {
+    const sp = this.sprint(), t = this.s.stepElapsed;
+    if (this.remaining() <= 0) { sp.lastInput = t; return; }
+    const gap = t - (sp.lastInput || 0);
+    if (gap > (app().pauseLimit || 60)) sp.paused++;
+    if (gap > sp.maxPause) sp.maxPause = gap;
+    sp.lastInput = t;
+    if (this.remaining() > 0) sp.words = L.countWords(this.s.data.text);
+  },
+  save() {
+    if (!this.s) return;
+    this._saved = Date.now();
+    const s = this.s;
+    s.words = s.kind === 'piece' ? Math.max(0, L.countWords((Store.get('pieces', s.data.pieceId) || {}).text) - (s.data.wordsBefore || 0)) : L.countWords(L.mainText(s));
+    Store.put('sessions', s.id, clone(s), true);
+  },
+  next() {
+    const st = this.step();
+    if (st && st.sprint) {
+      const sp = this.sprint();
+      const idle = Math.min(this.s.stepElapsed, st.min * 60) - (sp.lastInput || 0);
+      if (idle > (app().pauseLimit || 60)) sp.paused++;
+      sp.seconds = Math.min(this.s.stepElapsed, st.min * 60);
+      if (this.remaining() > 0) sp.words = L.countWords(this.s.data.text);
+    }
+    if (this.s.step < this.flow().length - 1) {
+      this.s.step++; this.s.stepElapsed = 0; this._chimed = false; this.save(); showFocus();
+    } else this.finish();
+  },
+  finish() {
+    const s = this.s;
+    s.status = 'done'; s.finishedAt = nowIso();
+    if (s.data.sprint) delete s.data.sprint.lastInput;
+    logSelfMarks('sessions', s);
+    this.save();
+    if (s.kind === 'piece') { const p = Store.get('pieces', s.data.pieceId); if (p) Store.put('pieces', p.id, Object.assign(clone(p), { words: L.countWords(p.text) }), true); }
+    clearInterval(this._iv); holdWake(false);
+    this.done = s.id; showFocus();
+  },
+  quit(keep) {
+    clearInterval(this._iv); holdWake(false);
+    if (!keep && this.s) Store.remove('sessions', this.s.id); else if (this.s) this.save();
+    this.s = null; this.done = null; hideFocus();
+  },
+  close() { this.s = null; this.done = null; hideFocus(); }
+};
+
+/* ---------- marks and the error log ---------- */
+/* Self marks are logged once, when the session ends (or immediately outside a session). */
+function logMark(m) {
+  if (m.errId || !m.type) return m;
+  const id = L.errorId(m.type, m.quote);
+  const row = L.logError(Store.get('errors', id), { type: m.type, wrote: m.quote, correct: m.fix, by: m.by === 'self' ? 'self' : 'claude', date: L.iso() });
+  Store.put('errors', row.id, row, true);
+  m.errId = row.id;
+  return m;
+}
+function logSelfMarks(coll, doc) { for (const m of doc.marks || []) if (m.by === 'self') logMark(m); }
+function addMark(coll, id, mark) {
+  const doc = clone(Store.get(coll, id));
+  doc.marks = (doc.marks || []).concat([coll === 'sessions' && doc.status === 'active' ? mark : logMark(mark)]);
+  Store.put(coll, id, doc);
+}
+function removeMark(coll, id, idx) {
+  const doc = clone(Store.get(coll, id)); const m = doc.marks[idx];
+  if (m && m.errId) {
+    const row = Store.get('errors', m.errId);
+    if (row) { const r = clone(row); const i = r.dates.lastIndexOf(L.iso()); r.dates.splice(i >= 0 ? i : r.dates.length - 1, 1); if (r.dates.length) Store.put('errors', r.id, r, true); else Store.remove('errors', r.id); }
+  }
+  doc.marks.splice(idx, 1); Store.put(coll, id, doc);
+}
+function setFixed(coll, id, idx, fix) {
+  const doc = clone(Store.get(coll, id)); const m = doc.marks[idx];
+  m.fixed = true; m.fix = fix; m.lastHint = '';
+  if (m.errId && Store.get('errors', m.errId)) { const r = clone(Store.get('errors', m.errId)); r.correct = fix; Store.put('errors', r.id, r, true); }
+  Store.put(coll, id, doc);
+}
+
+/* ---------- Claude ---------- */
+const SAMPLE_MSG = {
+  not_granted: 'Claude is not allowed for this page. You can allow it from the page’s permissions, or use the copy-and-paste review below.',
+  sampling_disabled: 'Claude is not available on this account.', rate_limited: 'Claude is busy or your usage limit is reached. Try again later.',
+  session_expired: 'Sign in again to use Claude.', refused: 'Claude declined this text.', invalid_json: 'Claude’s reply could not be read. Try again.',
+  prompt_too_large: 'This text is too long to review in one go.'
+};
+const sampleError = e => SAMPLE_MSG[e && e.code] || 'Claude could not be reached. Try again in a moment.';
+function reviewsLeft() { const a = app(); return Math.max(0, (a.reviewsPerWeek || 1) - L.reviewsThisWeek(a, sessions(), pieces(), L.iso())); }
+
+async function claudeReview(coll, id) {
+  const doc = Store.get(coll, id); const text = targetText(coll, doc);
+  if (!App.sample || !text.trim() || doc.reviewedAt) return;
+  App.busy[id] = 'Claude is reading your draft…'; render();
+  try {
+    const raw = await App.sample.json(L.reviewPrompt(text, currentTop3(), ERROR_TYPES), { cache: false });
+    applyReview(coll, id, L.validateMarks(raw, text, ERROR_TYPES), 'claude');
+    App.notice = '';
+  } catch (e) { App.notice = sampleError(e); if (e && e.code === 'not_granted') App.sample = null; }
+  delete App.busy[id]; render();
+}
+function applyReview(coll, id, marks, mode) {
+  const d = clone(Store.get(coll, id));
+  d.marks = (d.marks || []).filter(m => m.by !== 'claude').concat(marks.map(m => logMark(m)));
+  d.reviewed = true; d.reviewedAt = nowIso(); d.reviewMode = mode; d.reviewedWords = L.countWords(targetText(coll, d));
+  Store.put(coll, id, d);
+}
+async function claudeRepair(coll, id, idx, fix) {
+  const doc = Store.get(coll, id), m = doc.marks[idx];
+  const sentence = L.sentenceAround(targetText(coll, doc), m.at);
+  const key = id + ':' + idx;
+  App.busy[key] = 'Checking…'; render();
+  try {
+    const r = L.validateRepair(await App.sample.json(L.repairPrompt(sentence, m.quote, m.type, fix), { cache: false }));
+    if (!r) throw { code: 'invalid_json' };
+    if (r.ok) setFixed(coll, id, idx, fix);
+    else { const d = clone(Store.get(coll, id)); d.marks[idx].tries = (d.marks[idx].tries || 0) + 1; d.marks[idx].lastHint = r.hint || 'Not yet. Look at the marked words again.'; Store.put(coll, id, d); }
+  } catch (e) { App.notice = sampleError(e); }
+  delete App.busy[key]; render();
+}
+
+/* ==== src/app_focus.js ==== */
+/* app_focus.js: the full-screen session steps. Each step returns {el, ready} where ready() gives a blocking reason or null. */
+'use strict';
+
+const STEP_NAME = { copy: 'Copy', write: 'Write', check: 'Check', read: 'Read', notes: 'Notes', order: 'Order', rebuild: 'Rebuild', compare: 'Compare',
+  combine: 'Combine', source: 'Article', point: 'Point', draft: 'Draft', link: 'Link', close: 'Close', study: 'Study', practice: 'Practice', work: 'Work' };
+
+/* A writing surface. Paste is always off. In a sprint step with "no deleting" on, deletion is off too. */
+function writeArea(o) {
+  const ta = h('textarea', { id: o.id, class: 'sheet' + (o.small ? ' small' : ''), rows: o.rows || 10, placeholder: o.placeholder || '', value: o.value || '',
+    spellcheck: false, autocomplete: 'off', autocorrect: 'off', autocapitalize: 'sentences', 'data-gramm': 'false', 'data-gramm_editor': 'false', 'data-enable-grammarly': 'false',
+    'aria-label': o.label || 'Your writing' });
+  const say = msg => { if (o.flash) o.flash(msg); };
+  const noPaste = e => { e.preventDefault(); say('Paste is off. Write every word yourself.'); };
+  ta.addEventListener('paste', noPaste); ta.addEventListener('drop', noPaste);
+  if (o.noDelete) {
+    ta.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' || e.key === 'Delete' || ((e.ctrlKey || e.metaKey) && /^[zxy]$/i.test(e.key))) { e.preventDefault(); say('No deleting in this step. Keep going and fix it in the check.'); }
+    });
+    ta.addEventListener('beforeinput', e => { if (/^delete|^history/.test(e.inputType)) { e.preventDefault(); say('No deleting in this step. Keep going.'); } });
+    ta.addEventListener('cut', e => e.preventDefault());
+  }
+  ta.addEventListener('input', () => o.oninput(ta.value));
+  return ta;
+}
+
+function showFocus() {
+  const root = document.getElementById('focus');
+  root.hidden = false; document.body.classList.add('in-focus');
+  root.replaceChildren(Engine.done ? doneScreen() : stepScreen());
+  Focus.updateClock();
+  const first = root.querySelector('textarea:not([readonly]), input[type=text]');
+  if (first && !Engine.done) setTimeout(() => first.focus({ preventScroll: true }), 30);
+  root.scrollTop = 0;
+}
+function hideFocus() { document.getElementById('focus').hidden = true; document.body.classList.remove('in-focus'); render(); }
+
+const Focus = {
+  updateClock() {
+    const el = document.getElementById('clock'); if (!el || !Engine.s) return;
+    const r = Engine.remaining();
+    el.textContent = r > 0 ? mmss(r) : '+' + mmss(-r);
+    el.classList.toggle('over', r <= 0);
+    const pm = document.getElementById('pausem');
+    if (pm && Engine.s.data.sprint) {
+      const sp = Engine.s.data.sprint, lim = app().pauseLimit || 60;
+      const idle = Engine.remaining() > 0 ? Engine.s.stepElapsed - (sp.lastInput || 0) : 0;
+      pm.textContent = 'Pause ' + mmss(idle) + ' of ' + mmss(lim) + (sp.paused ? ' · stopped ' + plural(sp.paused, 'time') : '');
+      pm.classList.toggle('warn', idle > lim * 0.6 || sp.paused > 0);
+    }
+    const wc = document.getElementById('sprintwords');
+    if (wc && Engine.s.data.sprint) wc.textContent = Engine.s.data.sprint.words + ' words' + (Engine.remaining() <= 0 ? ' in time' : '');
+  }
+};
+
+function stepScreen() {
+  const s = Engine.s, flow = Engine.flow(), st = Engine.step();
+  const builder = STEPS[s.kind + ':' + st.id] || STEPS[st.id];
+  const msg = h('p', { class: 'stepmsg', role: 'status' });
+  const flash = t => { msg.textContent = t; msg.classList.add('on'); clearTimeout(msg._t); msg._t = setTimeout(() => msg.classList.remove('on'), 3500); };
+  const step = builder(s, flash);
+  const isLast = s.step === flow.length - 1;
+  const nextBtn = h('button', { class: 'btn primary', id: 'next', onclick: () => {
+    const why = step.ready ? step.ready() : null;
+    if (why) { flash(why); return; }
+    if (step.commit) step.commit();
+    Engine.next();
+  } }, isLast ? 'Finish' : 'Next: ' + STEP_NAME[flow[s.step + 1].id]);
+  const stopWrap = h('div', { class: 'stop' });
+  const stopBtn = h('button', { class: 'btn quiet', onclick: () => {
+    stopWrap.replaceChildren(h('span', { class: 'muted' }, 'Stop this session?'),
+      h('button', { class: 'btn quiet', onclick: () => Engine.quit(true) }, 'Keep it for later'),
+      h('button', { class: 'btn quiet danger', onclick: () => Engine.quit(false) }, 'Discard'),
+      h('button', { class: 'btn quiet', onclick: () => showFocus() }, 'Cancel'));
+  } }, 'Stop');
+  stopWrap.append(stopBtn);
+  return h('div', { class: 'focus-inner' },
+    h('header', { class: 'focus-head' },
+      h('div', { class: 'fh-left' }, h('span', { class: 'eyebrow' }, KIND_LABEL[s.kind] + ' · Phase ' + s.phase),
+        h('ol', { class: 'steps' }, flow.map((f, i) => h('li', { class: i < s.step ? 'past' : i === s.step ? 'now' : '' }, STEP_NAME[f.id], h('small', null, f.min + "'"))))),
+      h('div', { class: 'clock', id: 'clock', 'aria-live': 'off' }, mmss(st.min * 60))),
+    h('main', { class: 'focus-body' }, step.el),
+    h('footer', { class: 'focus-foot' }, stopWrap, msg, nextBtn));
+}
+
+/* ---------- shared bits ---------- */
+const p = (t, cls) => h('p', { class: cls || '' }, t);
+function modelBlock(m) {
+  return h('figure', { class: 'model' }, h('blockquote', null, m.text),
+    h('figcaption', null, m.author + ', ', h('cite', null, m.title), m.year ? ' (' + m.year + ')' : '', m.source ? [' · ', h('a', { href: m.source, target: '_blank', rel: 'noopener' }, 'source')] : ''));
+}
+function counter(id, text) { return h('span', { class: 'count', id }, text); }
+function moveList(items, order, onchange) {
+  const ol = h('ol', { class: 'movelist' });
+  const draw = () => ol.replaceChildren(...order.map((idx, pos) => h('li', null, h('span', { class: 'mv-text' }, items[idx]),
+    h('span', { class: 'mv-btns' },
+      h('button', { class: 'icon', 'aria-label': 'Move up', disabled: pos === 0, onclick: () => { [order[pos - 1], order[pos]] = [order[pos], order[pos - 1]]; onchange(order); draw(); } }, '↑'),
+      h('button', { class: 'icon', 'aria-label': 'Move down', disabled: pos === order.length - 1, onclick: () => { [order[pos + 1], order[pos]] = [order[pos], order[pos + 1]]; onchange(order); draw(); } }, '↓')))));
+  draw(); return ol;
+}
+/* Select text in your own draft and mark it. */
+function selfMarker(getText, marks, onAdd, onRemove) {
+  const ta = h('textarea', { class: 'sheet readonly', readOnly: true, rows: 8, value: getText(), 'aria-label': 'Your draft. Select a problem to mark it.' });
+  const type = h('select', { 'aria-label': 'Error type' }, ERROR_TYPES.map(t => h('option', { value: t }, t)));
+  const fix = h('input', { type: 'text', placeholder: 'Correct form, if you know it', 'aria-label': 'Correct form' });
+  const out = h('p', { class: 'muted small' }, 'Select the wrong words in your draft, then mark them.');
+  const list = h('ul', { class: 'marklist' });
+  const draw = () => list.replaceChildren(...marks().map((m, i) => [m, i]).filter(([m]) => m.by === 'self').map(([m, i]) => m.by === 'self' ? h('li', null, h('span', { class: 'tag' }, m.type), ' “', h('span', { class: 'q' }, m.quote), '”',
+    m.fix ? [' → ', h('em', null, m.fix)] : '', h('button', { class: 'icon', 'aria-label': 'Remove mark', onclick: () => { onRemove(i); draw(); } }, '×')) : null));
+  const btn = h('button', { class: 'btn', onclick: () => {
+    const a = ta.selectionStart, b = ta.selectionEnd, q = ta.value.slice(a, b);
+    if (!q.trim()) { out.textContent = 'Select some words in the draft first.'; return; }
+    onAdd({ quote: q, at: a, type: type.value, hint: '', by: 'self', fixed: !!fix.value.trim(), fix: fix.value.trim(), tries: 0, note: '', errId: '' });
+    fix.value = ''; out.textContent = 'Marked. Find the next one.'; draw();
+  } }, 'Mark selection');
+  draw();
+  return h('div', { class: 'marker' }, ta, h('div', { class: 'markrow' }, type, fix, btn), out, list);
+}
+
+/* ---------- steps ---------- */
+const STEPS = {
+  copy(s, flash) {
+    const m = modelById(s.data.modelId);
+    return { el: h('div', { class: 'stack' },
+      p('Copy this paragraph by hand, on paper. Copying puts native sentence patterns back in your hand without the pressure of inventing content.', 'lead'),
+      modelBlock(m),
+      p(['Or copy a paragraph from a ', h('a', { href: SITES[0][1], target: '_blank', rel: 'noopener' }, 'Paul Graham essay'), ' instead.'], 'muted small'),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!s.data.copied, onchange: e => { s.data.copied = e.target.checked; } }), ' I copied it by hand')),
+      ready: () => s.data.copied ? null : 'Tick the box once you have copied it.' };
+  },
+
+  write(s, flash) {   // the sprint
+    const d = s.data, a = app();
+    const topic = h('p', { class: 'topic' }, d.topic);
+    const other = h('button', { class: 'btn quiet small', hidden: !!(d.text || '').trim(), onclick: () => { const i = (TOPICS.indexOf(d.topic) + 1) % TOPICS.length; d.topic = TOPICS[i]; topic.textContent = d.topic; } }, 'Another topic');
+    const ta = writeArea({ id: 'sprint', value: d.text, rows: 14, noDelete: a.noDelete, flash, placeholder: 'Start with the simplest true sentence.',
+      oninput: v => { d.text = v; other.hidden = true; Engine.onSprintInput(); Focus.updateClock(); } });
+    const rules = (s.phase || 1) === 1 ? PHASES[1].rules : [];
+    return { el: h('div', { class: 'stack' },
+      h('div', { class: 'topicrow' }, h('span', { class: 'eyebrow' }, 'Write about'), topic, other),
+      rules.length ? h('ul', { class: 'rules' }, rules.map(r => h('li', null, r))) : '',
+      ta,
+      h('div', { class: 'meta' }, counter('sprintwords', (d.sprint ? d.sprint.words : 0) + ' words'), h('span', { class: 'pause', id: 'pausem' }, ''),
+        h('span', { class: 'muted' }, a.noDelete ? 'No deleting, no checker. ' : '', 'Pause over ' + mmss(a.pauseLimit || 60) + ' breaks "without stopping".'))),
+      ready: () => (d.text || '').trim() ? null : 'Write something first.' };
+  },
+
+  check(s, flash) {
+    const text = L.mainText(s);
+    const rep = L.sentenceReport(text, s.phase);
+    const off = rep.filter(r => r.long || r.short).length;
+    return { el: h('div', { class: 'stack' },
+      p('Read it aloud. Underline 3 problems yourself: select the words, choose the kind of error, and mark them. They go into your error log.', 'lead'),
+      selfMarker(() => text, () => s.marks, m => { s.marks.push(m); Engine.save(); }, i => { s.marks.splice(i, 1); Engine.save(); }),
+      s.phase === 1 && rep.length ? p(plural(rep.length, 'sentence') + ', ' + off + ' outside 10-20 words. ' + (rep.filter(r => r.long).length ? 'Longest: ' + Math.max(...rep.map(r => r.words)) + ' words.' : ''), 'muted small') : '',
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!s.data.fewer, onchange: e => { s.data.fewer = e.target.checked; } }), ' I found fewer than 3')),
+      ready: () => s.marks.filter(m => m.by === 'self').length >= 3 || s.data.fewer ? null : 'Mark 3 problems, or tick “I found fewer than 3”.' };
+  },
+
+  read(s) {
+    const m = modelById(s.data.modelId);
+    return { el: h('div', { class: 'stack' }, p('Read the paragraph twice. Notice how each sentence opens and what it hands to the next one.', 'lead'), modelBlock(m),
+      s.data.shuffled ? p('This is a shuffle week: your notes will come back in scrambled order and you will put them in order before rebuilding.', 'note') : ''), ready: () => null };
+  },
+
+  notes(s, flash) {   // franklin1 and franklin3
+    const m = modelById(s.data.modelId), sents = L.splitSentences(m.text);
+    const d = s.data; d.notes = d.notes && d.notes.length === sents.length ? d.notes : sents.map(() => '');
+    const rows = sents.map((t, i) => {
+      const c = counter(null, L.countWords(d.notes[i]) + ' w');
+      return h('li', { class: 'noterow' }, h('p', { class: 'src' }, t),
+        h('div', { class: 'noteinput' }, h('input', { type: 'text', value: d.notes[i], 'aria-label': 'Note for sentence ' + (i + 1), placeholder: '3-5 words',
+          onpaste: e => { e.preventDefault(); flash('Paste is off.'); },
+          oninput: e => { d.notes[i] = e.target.value; const w = L.countWords(e.target.value); c.textContent = w + ' w'; c.classList.toggle('warn', w > 5); } }), c));
+    });
+    return { el: h('div', { class: 'stack' }, p('Write a 3-5 word note for each sentence: the idea, not the wording. Then the original goes away.', 'lead'),
+      h('ol', { class: 'notes' }, rows), h('p', { class: 'muted small' }, m.author + ', ' + m.title)),
+      ready: () => d.notes.some(n => !n.trim()) ? 'Write a note for every sentence.' : null };
+  },
+
+  'franklin2:order'(s) {
+    const d = s.data;
+    return { el: h('div', { class: 'stack' }, p('Shuffle week. Your notes are scrambled. Put them back in the order the ideas should go, then rebuild.', 'lead'),
+      moveList(d.notes, d.order, o => { d.order = o; })), ready: () => null };
+  },
+
+  rebuild(s, flash) {
+    const d = s.data, order = d.order || d.notes.map((_, i) => i);
+    const c = counter('rw', L.countWords(d.text) + ' words');
+    return { el: h('div', { class: 'stack' },
+      p('Rebuild the paragraph from your notes only, in any suitable words. Express each idea as fully as the original did.', 'lead'),
+      h('ol', { class: 'notelist' }, order.map(i => h('li', null, d.notes[i] || '—'))),
+      writeArea({ id: 'rebuild', value: d.text, rows: 10, flash, oninput: v => { d.text = v; c.textContent = L.countWords(v) + ' words'; } }),
+      h('div', { class: 'meta' }, c)),
+      ready: () => L.countWords(d.text) >= 20 ? null : 'Rebuild the whole paragraph first.' };
+  },
+
+  compare(s) {
+    const d = s.data, m = modelById(d.modelId), sents = L.splitSentences(m.text);
+    d.kept = d.kept && d.kept.length === sents.length ? d.kept : sents.map(() => false);
+    d.diffs = d.diffs || ['', ''];
+    let orderNote = '';
+    if (d.order) { const right = d.order.filter((v, i) => v === i).length; d.orderRight = right; orderNote = 'You put ' + right + ' of ' + d.order.length + ' notes back in the original order.'; }
+    return { el: h('div', { class: 'stack' },
+      p('Compare your version with the original. Tick each idea you kept, then note 2 differences in wording or structure.', 'lead'),
+      orderNote ? p(orderNote, 'note') : '',
+      h('div', { class: 'compare' },
+        h('section', null, h('h3', null, 'Original'), h('ol', { class: 'kept' }, sents.map((t, i) => h('li', null,
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: d.kept[i], onchange: e => { d.kept[i] = e.target.checked; } }), h('span', null, t)))))),
+        h('section', null, h('h3', null, 'Yours'), h('div', { class: 'yours' }, d.text || ''))),
+      h('label', { class: 'field' }, 'Difference 1', h('input', { type: 'text', value: d.diffs[0], oninput: e => { d.diffs[0] = e.target.value; } })),
+      h('label', { class: 'field' }, 'Difference 2', h('input', { type: 'text', value: d.diffs[1], oninput: e => { d.diffs[1] = e.target.value; } }))),
+      ready: () => d.diffs.every(x => x.trim()) ? null : 'Note 2 differences.',
+      commit: () => { d.keptAll = d.kept.every(Boolean); } };
+  },
+
+  combine(s, flash) {
+    const d = s.data; d.ways = d.ways || ['', '', ''];
+    const set = setById(d.setId);
+    const body = h('div', { class: 'stack' });
+    const draw = () => {
+      const set = setById(d.setId);
+      body.replaceChildren(...[
+        p('Join these 6 short sentences into 2-3 longer ones. Do it three different ways.', 'lead'),
+        h('ol', { class: 'source6' }, set.s.map(t => h('li', null, t))),
+        d.ways.every(w => !w.trim()) ? h('button', { class: 'btn quiet small', onclick: () => { const i = (COMBINING.indexOf(set) + 1) % COMBINING.length; d.setId = COMBINING[i].id; draw(); } }, 'Another set') : '',
+        d.ways.map((w, i) => {
+          const c = counter(null, L.splitSentences(w).length + ' sentences');
+          return h('div', { class: 'way' }, h('span', { class: 'eyebrow' }, 'Way ' + (i + 1)),
+            writeArea({ value: w, rows: 3, small: true, flash, label: 'Way ' + (i + 1), oninput: v => { d.ways[i] = v; c.textContent = L.splitSentences(v).length + ' sentences'; } }), c);
+        })].flat().filter(x => x !== ''));
+    };
+    draw();
+    return { el: body, ready: () => {
+      for (let i = 0; i < 3; i++) { const n = L.splitSentences(d.ways[i]).length; if (n < 2 || n > 3) return 'Way ' + (i + 1) + ' needs 2 or 3 sentences.'; }
+      if (new Set(d.ways.map(L.norm)).size < 3) return 'Make the three ways different.';
+      return null;
+    } };
+  },
+
+  source(s) {
+    const d = s.data;
+    return { el: h('div', { class: 'stack' }, p('Pick an article you read this week. You will summarize its main point in 100 words.', 'lead'),
+      h('label', { class: 'field' }, 'Article title', h('input', { type: 'text', value: d.article || '', oninput: e => { d.article = e.target.value; } })),
+      h('label', { class: 'field' }, 'Link (optional)', h('input', { type: 'url', value: d.link || '', oninput: e => { d.link = e.target.value; } })),
+      p('Close the article before you write.', 'muted small')),
+      ready: () => (d.article || '').trim() ? null : 'Name the article first.' };
+  },
+
+  'summary:write'(s, flash) {
+    const d = s.data, c = counter('sw', L.countWords(d.text) + ' / 100 words');
+    return { el: h('div', { class: 'stack' }, p('State the main point first, then what supports it. 100 words.', 'lead'), p(d.article || '', 'topic'),
+      writeArea({ id: 'summary', value: d.text, rows: 8, flash, oninput: v => { d.text = v; const w = L.countWords(v); c.textContent = w + ' / 100 words'; c.classList.toggle('ok', w >= 90 && w <= 110); } }),
+      h('div', { class: 'meta' }, c)),
+      ready: () => { const w = L.countWords(d.text); return w >= 90 && w <= 110 ? null : 'Aim for 100 words (90-110). You have ' + w + '.'; } };
+  },
+
+  point(s) {
+    const d = s.data;
+    return { el: h('div', { class: 'stack' }, p('Step 1 of 6: the point. Write the one sentence this paragraph must prove.', 'lead'),
+      h('input', { type: 'text', class: 'big', value: d.point || '', 'aria-label': 'The point', oninput: e => { d.point = e.target.value; } })),
+      ready: () => (d.point || '').trim() ? null : 'Write the point.' };
+  },
+  'paragraph:notes'(s) {
+    const d = s.data;
+    return { el: h('div', { class: 'stack' }, p('Step 2: notes. 3-6 short notes that support the point, one per line.', 'lead'), p(d.point, 'topic'),
+      h('textarea', { class: 'sheet small', rows: 6, value: (d.notes || []).join('\n'), oninput: e => { d.notes = e.target.value.split('\n').map(x => x.trim()).filter(Boolean); } })),
+      ready: () => { const n = (d.notes || []).length; return n >= 3 && n <= 6 ? null : 'Write 3-6 notes, one per line.'; } };
+  },
+  'paragraph:order'(s) {
+    const d = s.data, order = d.notes.map((_, i) => i);
+    return { el: h('div', { class: 'stack' }, p('Step 3: order. Arrange the notes so each one leads into the next.', 'lead'),
+      moveList(d.notes, order, o => { d.order = o.slice(); })),
+      ready: () => null, commit: () => { if (d.order) d.notes = d.order.map(i => d.notes[i]); delete d.order; } };
+  },
+  draft(s, flash) {
+    const d = s.data, c = counter('dw', L.countWords(d.draft) + ' words');
+    return { el: h('div', { class: 'stack' }, p('Step 4: draft. Open with the point, then follow your notes in order.', 'lead'),
+      h('div', { class: 'plan' }, h('p', { class: 'topic' }, d.point), h('ol', { class: 'notelist' }, d.notes.map(n => h('li', null, n)))),
+      writeArea({ id: 'draft', value: d.draft || '', rows: 8, flash, oninput: v => { d.draft = v; c.textContent = L.countWords(v) + ' words'; } }), h('div', { class: 'meta' }, c)),
+      ready: () => L.countWords(d.draft) >= 40 ? null : 'Draft the paragraph first (40+ words).' };
+  },
+  link(s, flash) {
+    const d = s.data;
+    const box = h('div', { class: 'stack' });
+    const draw = () => {
+      const sents = L.splitSentences(d.draft); d.links = sents.map((_, i) => (d.links || [])[i] || false);
+      box.replaceChildren(p('Step 5: link. Each sentence should pick up something from the one before it. Tick each pair that links; fix the ones that do not.', 'lead'),
+        h('ol', { class: 'pairs' }, sents.slice(1).map((t, i) => h('li', null, h('p', { class: 'prev' }, sents[i]), h('label', { class: 'check' },
+          h('input', { type: 'checkbox', checked: d.links[i + 1], onchange: e => { d.links[i + 1] = e.target.checked; } }), h('span', null, t))))),
+        h('details', null, h('summary', null, 'Edit the draft'), writeArea({ value: d.draft, rows: 6, flash, oninput: v => { d.draft = v; } }),
+          h('button', { class: 'btn quiet small', onclick: draw }, 'Update the pairs')));
+    };
+    draw();
+    return { el: box, ready: () => d.links.slice(1).every(Boolean) ? null : 'Tick every pair once it links.' };
+  },
+  close(s) {
+    const d = s.data;
+    const prev = h('p', { class: 'yours' }, d.draft + ' ' + (d.close || ''));
+    return { el: h('div', { class: 'stack' }, p('Step 6: close. One sentence that returns to the point with what the paragraph has shown.', 'lead'), p(d.point, 'topic'),
+      h('input', { type: 'text', class: 'big', value: d.close || '', 'aria-label': 'Closing sentence', onpaste: e => e.preventDefault(), oninput: e => { d.close = e.target.value; prev.textContent = d.draft + ' ' + d.close; } }), prev),
+      ready: () => (d.close || '').trim() ? null : 'Write the closing sentence.' };
+  },
+
+  study(s) {
+    const type = s.data.type, rows = errorsList().filter(e => e.type === type);
+    const notes = [...new Set(sessions().concat(pieces()).flatMap(x => (x.marks || []).filter(m => m.type === type && m.note).map(m => m.note)))].slice(0, 3);
+    return { el: h('div', { class: 'stack' }, p('This error type has come up ' + plural(rows.reduce((t, r) => t + r.dates.length, 0), 'time') + '. Study your own examples.', 'lead'),
+      h('h3', null, type), h('table', { class: 'tbl' }, h('thead', null, h('tr', null, h('th', null, 'What you wrote'), h('th', null, 'Correct form'))),
+        h('tbody', null, rows.map(r => h('tr', null, h('td', null, r.wrote), h('td', null, r.correct || '—'))))),
+      notes.length ? h('ul', { class: 'rules' }, notes.map(n => h('li', null, n))) : ''), ready: () => null };
+  },
+  practice(s, flash) {
+    const d = s.data, c = counter('pw', L.splitSentences(d.text).length + ' sentences');
+    return { el: h('div', { class: 'stack' }, p('Write 6 sentences of your own about your work or your day, each using the correct form for: ' + d.type + '.', 'lead'),
+      writeArea({ id: 'practice', value: d.text, rows: 9, flash, oninput: v => { d.text = v; c.textContent = L.splitSentences(v).length + ' sentences'; } }), h('div', { class: 'meta' }, c)),
+      ready: () => L.splitSentences(d.text).length >= 6 ? null : 'Write 6 sentences.' };
+  },
+
+  work(s, flash) {
+    return { el: pieceEditor(s.data.pieceId, { flash, inFocus: true }), ready: () => null };
+  }
+};
+
+/* ---------- after the last step ---------- */
+function doneScreen() {
+  const s = Store.get('sessions', Engine.done) || Engine.s;
+  const mins = Math.round(s.seconds / 60);
+  const lines = [h('p', { class: 'lead' }, plural(mins, 'minute') + (s.words ? ', ' + plural(s.words, 'word') : '') + '.')];
+  const sp = s.data.sprint;
+  if (sp) {
+    const lim = app().pauseLimit || 60, clean = L.sprintClean(sp, lim);
+    lines.push(h('p', { class: clean ? 'good' : 'note' }, plural(sp.words, 'word') + ' in ' + mmss(sp.seconds) + '. ' +
+      (sp.interrupted ? 'The page was reloaded mid-write, so this one does not count as "without stopping".' : clean ? 'No pause over ' + mmss(lim) + '.' : 'Longest pause ' + mmss(sp.maxPause) + ', over the ' + mmss(lim) + ' limit.') +
+      (L.sprintPasses(sp, lim) ? ' This meets the 150-words gate.' : '')));
+  }
+  if (s.kind === 'franklin1') lines.push(p('Notes saved and the original put away. The rebuild comes up after at least one more day and one other drill.', 'note'));
+  if (s.kind === 'franklin2' || s.kind === 'franklin3') lines.push(p(s.data.keptAll ? 'Your version kept every idea of the original.' : 'Some ideas were lost. That rebuild does not count toward the gate, but the comparison is the learning.', s.data.keptAll ? 'good' : 'note'));
+  const reviewable = s.kind !== 'franklin1' && s.kind !== 'piece' && L.mainText(s).trim();
+  return h('div', { class: 'focus-inner done' },
+    h('header', { class: 'focus-head' }, h('div', { class: 'fh-left' }, h('span', { class: 'eyebrow' }, KIND_LABEL[s.kind]), h('h2', null, 'Session done'))),
+    h('main', { class: 'focus-body' }, h('div', { class: 'stack' }, lines, reviewable ? reviewBox('sessions', s.id) : '')),
+    h('footer', { class: 'focus-foot' },
+      reviewable || s.kind === 'piece' ? h('button', { class: 'btn', onclick: () => { App.sel = s.kind === 'piece' ? { coll: 'pieces', id: s.data.pieceId } : { coll: 'sessions', id: s.id }; Engine.close(); go('writing'); } }, 'Open in Writing') : '',
+      h('button', { class: 'btn primary', onclick: () => { Engine.close(); go('today'); } }, 'Back to Today')));
+}
+
+/* ==== src/app_views.js ==== */
+/* app_views.js: Today, Plan, Writing, Errors, Progress, Setup, shared panels and charts. */
+'use strict';
+
+const VIEWS = [['today', 'Today'], ['plan', 'Plan'], ['writing', 'Writing'], ['errors', 'Errors'], ['progress', 'Progress'], ['setup', 'Setup']];
+const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const card = (cls, ...kids) => h('section', { class: 'card ' + (cls || '') }, ...kids);
+const meter = (have, need) => h('span', { class: 'bar', role: 'img', 'aria-label': have + ' of ' + need }, h('span', { style: 'width:' + Math.min(100, need ? have / need * 100 : 0) + '%' }));
+
+function render() {
+  const view = document.getElementById('view');
+  App.today = L.iso();
+  if (!document.getElementById('focus').hidden) { if (Engine.done) showFocus(); drawStatus(); return; }
+  drawNav();
+  if (Store.mode === 'loading') { view.replaceChildren(h('p', { class: 'muted pad' }, 'Opening your notebook…')); return; }
+  if (!app()) { view.replaceChildren(onboarding()); drawStatus(); return; }
+  const fn = { today: viewToday, plan: viewPlan, writing: viewWriting, errors: viewErrors, progress: viewProgress, setup: viewSetup }[App.route] || viewToday;
+  const y = window.scrollY;
+  view.replaceChildren(fn());
+  window.scrollTo(0, y);
+  drawStatus();
+}
+function go(route) { App.route = route; try { if (location.hash !== '#' + route) history.replaceState(null, '', '#' + route); } catch (e) { location.hash = route; } window.scrollTo(0, 0); render(); }
+
+function drawNav() {
+  const nav = document.getElementById('nav'), a = app();
+  nav.replaceChildren(...VIEWS.map(([id, label]) => h('a', { href: '#' + id, class: App.route === id ? 'on' : '', 'aria-current': App.route === id ? 'page' : null,
+    onclick: e => { e.preventDefault(); go(id); } }, label)));
+  const ph = document.getElementById('phase');
+  ph.replaceChildren(a ? h('div', null, h('span', { class: 'eyebrow' }, 'Phase ' + a.phase + ' of 4'), h('strong', null, PHASES[a.phase].name),
+    h('span', { class: 'phasedots' }, [1, 2, 3, 4].map(n => h('i', { class: n < a.phase ? 'past' : n === a.phase ? 'now' : '' })))) : '');
+}
+function drawStatus() {
+  const el = document.getElementById('status');
+  const where = Store.mode === 'db' ? (window.desktop ? 'Saved on this computer' : 'Saved to your private app data') : Store.mode === 'local' ? 'Saved in this browser only' : '';
+  el.replaceChildren(h('span', null, where), Store.status ? h('span', { class: 'warn' }, Store.status) : '', App.notice ? h('span', { class: 'warn' }, App.notice) : '');
+  if (App.notice && !App._noticeT) App._noticeT = setTimeout(() => { App.notice = ''; App._noticeT = 0; drawStatus(); }, 6000);
+}
+
+/* ---------- shared panels ---------- */
+function textWithMarks(text, marks) {
+  const ms = (marks || []).map((m, i) => Object.assign({ n: i + 1 }, m)).filter(m => m.at >= 0 && text.slice(m.at, m.at + m.quote.length) === m.quote).sort((a, b) => a.at - b.at);
+  const out = []; let pos = 0;
+  for (const m of ms) {
+    if (m.at < pos) continue;
+    out.push(text.slice(pos, m.at), h('mark', { class: 'mk ' + (m.fixed ? 'fixed' : m.by), title: m.type }, m.quote, h('sup', null, m.n)));
+    pos = m.at + m.quote.length;
+  }
+  out.push(text.slice(pos));
+  return h('div', { class: 'prose' }, out);
+}
+
+function reviewBox(coll, id) {
+  const doc = Store.get(coll, id); if (!doc) return '';
+  const text = targetText(coll, doc);
+  if (doc.reviewedAt) {
+    const n = (doc.marks || []).filter(m => m.by === 'claude').length;
+    return h('div', { class: 'review done' }, h('strong', null, 'Marked by Claude'), ' on ' + fmtDate(doc.reviewedAt) + ': ' + (n ? plural(n, 'problem') + '. Fix each one yourself below.' : 'no problems found.'));
+  }
+  if (App.busy[id]) return h('div', { class: 'review busy' }, App.busy[id]);
+  const left = reviewsLeft(), a = app();
+  const intro = h('p', null, 'Claude points at problems after the draft is done. It never rewrites anything, and you do the repair. ',
+    h('span', { class: 'muted' }, plural(a.reviewsPerWeek || 1, 'review') + ' a week; ' + left + ' left this week.'));
+  if (!text.trim()) return '';
+  if (left <= 0) return h('div', { class: 'review' }, intro, h('p', { class: 'muted small' }, 'This week’s review is used. Self-check this one, or change the number in Setup.'));
+  if (App.sample) return h('div', { class: 'review' }, intro, h('button', { class: 'btn primary', onclick: () => claudeReview(coll, id) }, 'Ask Claude to mark it'));
+  /* Outside the Claude viewer: copy a request, paste the reply. */
+  const out = h('p', { class: 'muted small' });
+  const ta = h('textarea', { class: 'sheet small', rows: 4, placeholder: 'Paste Claude’s reply here', 'aria-label': 'Claude reply' });
+  const prompt = L.reviewPrompt(text, currentTop3(), ERROR_TYPES);
+  return h('div', { class: 'review' }, intro,
+    h('p', { class: 'small' }, window.desktop ? 'To get reviews here, add your Anthropic API key in Setup. Or copy the request into a Claude chat and paste the reply back.' : 'Claude is not reachable from this page here. Copy the request into a Claude chat, then paste the reply back.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => copyText(prompt, out) }, 'Copy review request'), out), ta,
+    h('button', { class: 'btn', onclick: () => {
+      const marks = L.parsePastedMarks(ta.value, text, ERROR_TYPES);
+      if (!marks) { out.textContent = 'No list of marks found in that reply. Paste the whole reply, including the [ ] brackets.'; return; }
+      applyReview(coll, id, marks, 'paste');
+    } }, 'Add the marks'));
+}
+function copyText(t, out) {
+  const done = () => { if (out) out.textContent = 'Copied.'; };
+  try { navigator.clipboard.writeText(t).then(done, () => fallback()); } catch (e) { fallback(); }
+  function fallback() { const ta = h('textarea', { value: t, class: 'sheet small', rows: 4, readOnly: true }); out.replaceWith(ta); ta.select(); }
+}
+
+function marksPanel(coll, id) {
+  const doc = Store.get(coll, id); const marks = (doc && doc.marks) || [];
+  if (!marks.length) return '';
+  const text = targetText(coll, doc);
+  const fixed = marks.filter(m => m.fixed).length;
+  return h('div', { class: 'marks' }, h('h3', null, 'Marks ', h('span', { class: 'muted' }, fixed + ' of ' + marks.length + ' fixed')),
+    h('ol', null, marks.map((m, i) => {
+      const sent = L.sentenceAround(text, m.at), k = sent.indexOf(m.quote);
+      const before = k >= 0 ? sent.slice(0, k) : '', after = k >= 0 ? sent.slice(k + m.quote.length) : '';
+      const cut = (s, end) => s.length <= 100 ? s : end ? s.slice(0, 100).replace(/\s\S*$/, '') + ' …' : '… ' + s.slice(-100).replace(/^\S*\s/, '');
+      const ctx = k >= 0 ? [cut(before, false), h('mark', { class: 'mk ' + m.by }, m.quote), cut(after, true)] : ['“', m.quote, '”'];
+      const key = id + ':' + i;
+      const input = h('input', { type: 'text', 'aria-label': 'Your fix for mark ' + (i + 1), placeholder: 'Rewrite the marked words yourself', value: m.fix || '' });
+      const canClaude = m.by === 'claude' && App.sample;
+      return h('li', { class: m.fixed ? 'fixed' : '' },
+        h('div', { class: 'mhead' }, h('span', { class: 'tag' }, m.type), h('span', { class: 'by' }, m.by === 'claude' ? 'Claude' : m.by === 'ai' ? 'old app' : 'you'),
+          h('button', { class: 'icon', 'aria-label': 'Delete mark', onclick: () => removeMark(coll, id, i) }, '×')),
+        h('p', { class: 'ctx' }, ctx),
+        m.hint ? h('p', { class: 'hint' }, m.hint) : '', m.note ? h('p', { class: 'muted small' }, m.note) : '',
+        m.fixed ? h('p', { class: 'good small' }, 'Fixed: ', h('strong', null, m.fix)) :
+          App.busy[key] ? h('p', { class: 'muted small' }, App.busy[key]) :
+          h('div', { class: 'repair' }, input, h('button', { class: 'btn small', onclick: () => {
+            const v = input.value.trim(); if (!v) return;
+            if (canClaude) claudeRepair(coll, id, i, v); else setFixed(coll, id, i, v);
+          } }, canClaude ? 'Check my fix' : 'Save my fix')),
+        m.lastHint ? h('p', { class: 'hint warn' }, 'Not yet (' + plural(m.tries, 'try') + '): ' + m.lastHint) : '');
+    })));
+}
+
+/* The piece workspace, used in Writing and in a timed piece session. Draws itself so typing never re-renders the page. */
+function pieceEditor(pid, o) {
+  o = o || {};
+  const box = h('div', { class: 'piece' });
+  const get = () => Store.get('pieces', pid);
+  let t = 0;
+  const save = (patch, redraw) => {
+    const pc = Object.assign(clone(get()), patch); pc.words = L.countWords(pc.text);
+    Store.put('pieces', pid, pc, !redraw && !o.loud);
+    if (o.inFocus && Engine.s) { clearTimeout(t); t = setTimeout(() => Engine.save(), 800); }
+    if (redraw) draw();
+  };
+  const draw = () => {
+    const pc = get(); if (!pc) { box.replaceChildren(p('This piece was deleted.', 'muted')); return; }
+    const stages = L.stagesFor(pc.phase), at = stages.indexOf(pc.status);
+    const [lo, hi] = L.pieceTarget(pc, FORMS);
+    const blockers = L.stageBlockers(pc, checkIds);
+    const editable = !['plan', 'done'].includes(pc.status);
+    const wc = h('span', { class: 'count' });
+    const longs = h('span', { class: 'muted small' });
+    const meterUpd = text => {
+      const w = L.countWords(text); wc.textContent = w + ' words · target ' + lo + '-' + hi; wc.classList.toggle('ok', w >= lo && w <= hi);
+      const n = L.sentenceReport(text, Math.max(2, pc.phase)).filter(r => r.long).length; longs.textContent = n ? plural(n, 'sentence') + ' over 25 words' : '';
+    };
+    meterUpd(pc.text || '');
+    const kids = [
+      h('ol', { class: 'stages' }, stages.map((s, i) => h('li', { class: i < at ? 'past' : i === at ? 'now' : '' }, s === 'revise2' ? 'revise again' : s))),
+      h('label', { class: 'field' }, 'Title', h('input', { type: 'text', value: pc.title, placeholder: 'Working title', oninput: e => save({ title: e.target.value }) }))
+    ];
+    const planF = [
+      h('label', { class: 'field' }, 'The one point it makes', h('input', { type: 'text', value: pc.plan.point, oninput: e => save({ plan: Object.assign({}, get().plan, { point: e.target.value }) }) })),
+      h('label', { class: 'field' }, 'Who it is for', h('input', { type: 'text', value: pc.plan.reader, oninput: e => save({ plan: Object.assign({}, get().plan, { reader: e.target.value }) }) })),
+      h('label', { class: 'field' }, 'Notes and order', h('textarea', { class: 'sheet small', rows: 5, value: pc.plan.notes, oninput: e => save({ plan: Object.assign({}, get().plan, { notes: e.target.value }) }) }))
+    ];
+    if (pc.status === 'plan') kids.push(p('Plan first: the point, the reader, and the notes in order.', 'lead'), ...planF);
+    else kids.push(h('details', null, h('summary', null, 'Plan: ' + (pc.plan.point || 'no point written')), ...planF));
+    if (editable) kids.push(writeArea({ value: pc.text, rows: o.inFocus ? 16 : 12, flash: o.flash, label: 'Piece text', oninput: v => { meterUpd(v); save({ text: v }); } }), h('div', { class: 'meta' }, wc, longs));
+    else if (pc.status === 'done') kids.push(textWithMarks(pc.text, pc.marks), h('div', { class: 'meta' }, wc));
+    if (pc.status === 'revise') kids.push(h('fieldset', { class: 'checklist' }, h('legend', null, 'Revision checklist'),
+      REVISION_CHECKS.map(([cid, label]) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!pc.checks[cid], onchange: e => save({ checks: Object.assign({}, get().checks, { [cid]: e.target.checked }) }, true) }), h('span', null, label)))));
+    if (['feedback', 'revise2', 'publish', 'done'].includes(pc.status) && pc.phase >= 3) {
+      const who = h('input', { type: 'text', placeholder: 'Reader', 'aria-label': 'Reader name' }), what = h('input', { type: 'text', placeholder: 'What they said', 'aria-label': 'Their feedback' });
+      kids.push(h('div', { class: 'feedback' }, h('h3', null, 'Feedback ', h('span', { class: 'muted' }, L.readers(pc) + ' of 2 readers')),
+        h('ul', null, pc.feedback.map((f, i) => h('li', null, h('strong', null, f.by), ': ' + f.notes, h('button', { class: 'icon', 'aria-label': 'Remove', onclick: () => { const fb = get().feedback.slice(); fb.splice(i, 1); save({ feedback: fb }, true); } }, '×')))),
+        pc.status === 'feedback' ? [h('div', { class: 'markrow' }, who, what, h('button', { class: 'btn small', onclick: () => { if (!who.value.trim() || !what.value.trim()) return; save({ feedback: get().feedback.concat([{ by: who.value.trim(), notes: what.value.trim(), date: L.iso() }]) }, true); } }, 'Add')),
+          h('label', { class: 'field' }, 'Where you posted it (optional)', h('input', { type: 'url', value: pc.postedUrl, oninput: e => save({ postedUrl: e.target.value }) })),
+          p(['Post it for critique, for example on ', h('a', { href: SITES[1][1], target: '_blank', rel: 'noopener' }, 'Scribophile'), '.'], 'muted small')] : ''));
+    }
+    if (pc.status === 'publish') kids.push(h('label', { class: 'field' }, 'Published link' + (app().publishPlace ? ' (' + app().publishPlace + ')' : ''), h('input', { type: 'url', value: pc.publishedUrl, oninput: e => save({ publishedUrl: e.target.value }) })));
+    if (pc.status === 'done' && pc.publishedUrl) kids.push(p(['Published: ', h('a', { href: pc.publishedUrl, target: '_blank', rel: 'noopener' }, pc.publishedUrl)], 'small'));
+    if (at < stages.length - 1) {
+      const nextName = stages[at + 1] === 'revise2' ? 'revise again' : stages[at + 1];
+      kids.push(h('div', { class: 'advance' }, h('button', { class: 'btn' + (blockers.length ? '' : ' primary'), onclick: () => {
+        const cur = get(), b = L.stageBlockers(cur, checkIds);
+        if (b.length) { if (o.flash) o.flash(b[0]); draw(); return; }
+        Store.put('pieces', pid, L.advancePiece(cur, checkIds, nowIso()), !o.loud); draw();
+      } }, 'Move to ' + nextName), blockers.length ? h('span', { class: 'muted small' }, blockers.join(' ')) : ''));
+    }
+    if (!o.inFocus && !['plan', 'draft'].includes(pc.status)) kids.push(reviewBox('pieces', pid), marksPanel('pieces', pid));
+    box.replaceChildren(...kids);
+  };
+  draw();
+  return box;
+}
+
+/* ---------- Today ---------- */
+function startAction(a) {
+  if (a.resume) return Engine.open(Store.get('sessions', a.resume), true);
+  Engine.start(a.kind, { data: Object.assign({}, a.data || {}, a.pieceId ? { pieceId: a.pieceId } : {}), minutes: a.minutes });
+}
+function viewToday() {
+  const a = app(), today = App.today;
+  const act = L.nextAction(a, sessions(), pieces(), allModels(), today);
+  const wk = L.weekIndex(a.phaseStarted[a.phase] || a.startDate, today, a.weekStart);
+  const anchor = a.anchorRoutine && a.anchorPlace
+    ? h('p', { class: 'anchor' }, 'When I ', h('em', null, a.anchorRoutine), ', I will write for 25 minutes at ', h('em', null, a.anchorPlace), '.')
+    : h('p', { class: 'anchor empty' }, 'Write your anchor line in ', h('a', { href: '#setup', onclick: e => { e.preventDefault(); go('setup'); } }, 'Setup'), ': a fixed cue beats waiting for free time.');
+  const nextCard = card('next',
+    h('span', { class: 'eyebrow' }, act.resume ? 'Unfinished' : act.doneToday && act.kind ? 'Today is done · next time' : 'Today'),
+    h('h2', null, act.kind ? act.title : act.title),
+    h('p', null, act.why),
+    act.kind ? h('div', { class: 'row' }, h('button', { class: 'btn primary big', onclick: () => startAction(act) }, act.resume ? 'Resume' : act.doneToday ? 'Do it now anyway' : 'Start' + (act.minutes ? ' · ' + act.minutes + ' min' : '')),
+      act.resume ? h('button', { class: 'btn quiet', onclick: () => { Store.remove('sessions', act.resume); } }, 'Discard it') : '') : '');
+  /* other options */
+  const kinds = a.phase === 1 ? [] : a.phase === 2 ? ['franklin1', 'combining', 'summary', 'paragraph'] : ['franklin3', 'combining'];
+  const pick = h('select', { 'aria-label': 'Another drill' }, kinds.map(k => h('option', { value: k }, KIND_LABEL[k])));
+  const targets = L.drillTargets(errorsList(), sessions());
+  const others = card('others', h('h3', null, 'Other options'),
+    h('div', { class: 'opt' }, h('div', null, h('strong', null, 'Short session'), h('p', { class: 'muted small' }, '10 minutes of writing when the day is full. Keeps the habit; does not count toward the 15 sessions.')),
+      h('button', { class: 'btn', onclick: () => Engine.start('short') }, 'Start')),
+    kinds.length ? h('div', { class: 'opt' }, h('div', null, h('strong', null, 'A different drill'), h('p', { class: 'muted small' }, 'The queue keeps its order; this is extra.')), h('div', { class: 'row' }, pick, h('button', { class: 'btn', onclick: () => Engine.start(pick.value) }, 'Start'))) : '',
+    targets.filter(t => t.drills === 0).slice(0, 2).map(t => h('div', { class: 'opt' }, h('div', null, h('strong', null, 'Drill: ' + t.type), h('p', { class: 'muted small' }, 'Seen ' + plural(t.count, 'time') + '. Three times makes it a drill.')),
+      h('button', { class: 'btn', onclick: () => Engine.start('drill', { data: { type: t.type } }) }, 'Start'))));
+  /* week strip */
+  const ws = L.weekStartOf(today, a.weekStart || 0), done = sessions().filter(s => s.status === 'done');
+  const strip = h('ol', { class: 'week' }, [0, 1, 2, 3, 4, 5, 6].map(i => {
+    const d = L.addDays(ws, i), n = done.filter(s => s.date === d).length, wkend = L.isWeekend(d, a);
+    return h('li', { class: (d === today ? 'today ' : '') + (wkend ? 'wkend ' : '') + (n ? 'did' : '') }, h('span', null, DAY[L.dow(d)]), h('i', { 'aria-label': n ? plural(n, 'session') : 'none' }), h('small', null, d.slice(8)));
+  }));
+  const gap = L.daysSinceLast(sessions(), today);
+  /* reading */
+  const r = Store.get('reading', today) || { date: today, minutes: 0, book: '', note: '' };
+  const weekRead = Store.list('reading').filter(x => L.inWeek(x.date, today, a.weekStart || 0)).reduce((t, x) => t + (x.minutes || 0), 0);
+  const books = BOOKS.filter(b => b.phase === a.phase && (!b.form || b.form === a.form));
+  const mins = h('input', { type: 'number', min: 0, max: 240, step: 5, value: r.minutes || '', 'aria-label': 'Minutes read today', class: 'num' });
+  const what = h('input', { type: 'text', value: r.book || (books[0] ? books[0].title : ''), 'aria-label': 'What you read', placeholder: 'What you read' });
+  const readCard = card('reading', h('h3', null, 'Reading ', h('span', { class: 'muted' }, weekRead + ' min this week')),
+    h('p', { class: 'muted small' }, '15 minutes in English every day, in place of phone scrolling if you can.' + (books[0] ? ' This phase: ' + books[0].title + '.' : '')),
+    h('div', { class: 'row' }, mins, h('span', null, 'min'), what, h('button', { class: 'btn', onclick: () => Store.put('reading', today, { date: today, minutes: Number(mins.value) || 0, book: what.value.trim(), note: r.note || '' }) }, 'Save')));
+  return h('div', { class: 'page' },
+    h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, fmtDate(today) + ' · Phase ' + a.phase + ', week ' + wk), h('h1', null, PHASES[a.phase].name), anchor),
+    gap != null && gap >= 7 ? h('p', { class: 'alert' }, 'It has been ' + gap + ' days since your last session. The plan still works at 4 sessions a week; it fails at zero for two weeks.') : '',
+    nextCard, h('div', { class: 'grid2' }, card('weekcard', h('h3', null, 'This week'), strip, h('p', { class: 'muted small' }, 'Claude reviews left this week: ' + reviewsLeft())), readCard), others);
+}
+
+/* ---------- Plan ---------- */
+function advancePhase(form) {
+  const a = clone(app()), n = a.phase + 1;
+  a.phase = n; a.phaseStarted = Object.assign({}, a.phaseStarted, { [n]: L.iso() });
+  if (n === 2) a.top3 = L.computeTop3(errorsList());
+  if (n === 3 && form) a.form = form;
+  Store.put('state', 'app', a);
+}
+function viewPlan() {
+  const a = app(), g = L.evaluateGates(a, sessions(), pieces(), errorsList(), Store.list('critiques'));
+  const phaseCard = n => {
+    const ph = PHASES[n], cur = n === a.phase, gate = g[n];
+    const items = gate ? gate.items : [];
+    const form = h('select', { 'aria-label': 'Form for Phase 3' }, Object.entries(FORMS).map(([k, f]) => h('option', { value: k, selected: a.form === k }, f.label + ' (' + f.min + '-' + f.max + ' words)')));
+    return card('phase' + (cur ? ' current' : n < a.phase ? ' past' : ''),
+      h('div', { class: 'phead' }, h('span', { class: 'eyebrow' }, 'Phase ' + n + ' · ' + ph.span), h('h2', null, ph.name), n < a.phase ? h('span', { class: 'pill good' }, 'Done') : cur ? h('span', { class: 'pill' }, 'Now') : ''),
+      h('p', null, ph.goal), cur ? h('ul', { class: 'rules' }, ph.rules.map(r => h('li', null, r))) : '',
+      gate ? h('div', { class: 'gate' }, h('h3', null, 'Gate to move on'), h('ul', null, items.map(i => h('li', { class: i.met ? 'met' : '' },
+        h('span', { class: 'tick', 'aria-hidden': 'true' }, i.met ? '✓' : ''), h('span', { class: 'gl' }, i.label),
+        n <= a.phase ? [meter(i.rate ? Math.min(i.have, i.need) : i.have, i.need), h('span', { class: 'gv' }, i.rate ? rateText(i.rate) : i.have + ' / ' + i.need)] : '')))) : '',
+      cur && gate && gate.met ? h('div', { class: 'row' }, n === 2 ? h('label', { class: 'field inline' }, 'Form for the next three months', form) : '',
+        h('button', { class: 'btn primary', onclick: () => advancePhase(form.value) }, 'Move to Phase ' + (n + 1))) : '',
+      cur && n === 1 ? p('Top errors so far: ' + (L.computeTop3(errorsList()).join(', ') || 'none yet') + '. These freeze as your top 3 when Phase 2 starts.', 'muted small') : '');
+  };
+  const p2table = h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Day', 'Drill (25 min)', 'What it trains'].map(x => h('th', null, x)))),
+    h('tbody', null, [['1', 'Franklin rebuild, part 1: notes on a model paragraph', 'Separating ideas from wording'], ['2', 'Sentence combining, three ways', 'Sentence variety and control'],
+      ['3', 'Franklin rebuild, part 2: rebuild from notes, compare', 'Word choice and structure'], ['4', '100-word summary of an article', 'Finding and stating the main point'],
+      ['5', 'One paragraph in 6 steps', 'Planning and structure'], ['Weekend (60 min)', 'One 400-600 word piece: plan and draft, then revise', 'Whole-piece planning and revision']]
+      .map(r => h('tr', null, r.map(c => h('td', null, c))))));
+  return h('div', { class: 'page' },
+    h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, 'Six months, about 30 minutes a day'), h('h1', null, 'The plan'),
+      p('You move to the next phase when its gate is met, not when the calendar says so. If a phase runs long, the plan is still working.')),
+    [1, 2, 3, 4].map(phaseCard),
+    card('', h('h3', null, 'Phase 2 week'), p('Drills run as a queue in this order, so a missed day never breaks a rebuild. The rebuild waits at least a day after the notes. Every second rebuild, the notes come back shuffled.', 'muted small'), h('div', { class: 'scroll' }, p2table)),
+    card('', h('h3', null, 'The rules'), p('You write every word yourself; AI only points at problems after the draft is done.'),
+      h('div', { class: 'scroll' }, h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Use', 'Allowed', 'Why'].map(x => h('th', null, x)))), h('tbody', null, RULES_TABLE.map(r => h('tr', null, r.map((c, i) => h('td', { class: i === 1 ? 'b' : '' }, c)))))))),
+    card('', h('h3', null, 'Reading list'), p('One book per phase is enough. Read it in the 15-minute daily slot.', 'muted small'),
+      h('ul', { class: 'books' }, BOOKS.map(b => { const st = (a.books || {})[b.id] || {}; return h('li', null,
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!st.read, onchange: e => saveApp({ books: Object.assign({}, a.books, { [b.id]: Object.assign({}, st, { read: e.target.checked }) }) }) }),
+          h('span', null, h('strong', null, b.title), ' · ' + b.author, h('small', null, 'Phase ' + b.phase + (b.form ? ' (' + b.form + 's)' : '') + '. ' + b.why)))); }))),
+    card('', h('h3', null, 'Links'), h('ul', { class: 'links' }, SITES.map(([t, u]) => h('li', null, h('a', { href: u, target: '_blank', rel: 'noopener' }, t))))));
+}
+function rateText(r) { return r.words < 900 ? r.words + ' of 900 marked words' : r.perType.map(x => x.type + ' ' + x.per300.toFixed(1)).join(' · ') + ' per 300'; }
+
+/* ---------- Writing ---------- */
+function viewWriting() {
+  const a = app();
+  const items = pieces().map(x => ({ coll: 'pieces', doc: x, t: x.createdAt }))
+    .concat(sessions().filter(s => s.status === 'done' && (L.mainText(s).trim() || s.kind === 'franklin1')).map(x => ({ coll: 'sessions', doc: x, t: x.finishedAt || x.startedAt })))
+    .sort((x, y) => (y.t || '').localeCompare(x.t || ''));
+  if (!App.sel && items[0]) App.sel = { coll: items[0].coll, id: items[0].doc.id };
+  const sel = App.sel && Store.get(App.sel.coll, App.sel.id) ? App.sel : null;
+  const list = h('ul', { class: 'items' }, items.map(it => {
+    const d = it.doc, ms = d.marks || [];
+    const label = it.coll === 'pieces' ? (d.title || 'Untitled piece') : KIND_LABEL[d.kind];
+    return h('li', null, h('button', { class: 'item' + (sel && sel.id === d.id ? ' on' : ''), onclick: () => { App.sel = { coll: it.coll, id: d.id }; render(); } },
+      h('span', { class: 'it-t' }, label), h('span', { class: 'it-m' }, fmtDate(it.t) + ' · ' + plural(d.words || 0, 'word')),
+      h('span', { class: 'it-s' }, it.coll === 'pieces' ? h('span', { class: 'pill' }, d.status) : '', ms.length ? h('span', { class: 'pill ' + (ms.every(m => m.fixed) ? 'good' : 'red') }, ms.filter(m => m.fixed).length + '/' + ms.length + ' fixed') : '',
+        d.reviewedAt ? h('span', { class: 'pill' }, 'marked') : '')));
+  }));
+  const newPiece = h('button', { class: 'btn', onclick: () => {
+    const id = newId('p');
+    Store.put('pieces', id, { id, phase: a.phase, form: a.phase >= 3 ? a.form : 'essay', title: '', status: 'plan', createdAt: nowIso(), finishedAt: '', plan: { point: '', reader: '', notes: '' },
+      text: '', versions: [], checks: {}, feedback: [], postedUrl: '', publishedUrl: '', words: 0, marks: [], reviewed: false, reviewedAt: '' });
+    App.sel = { coll: 'pieces', id }; render();
+  } }, 'New piece');
+  let detail = h('p', { class: 'muted' }, 'Your sessions and pieces appear here once you finish one.');
+  if (sel) detail = sel.coll === 'pieces' ? pieceDetail(sel.id) : sessionDetail(sel.id);
+  return h('div', { class: 'page wide' },
+    h('header', { class: 'pagehead' }, h('h1', null, 'Writing'), a.phase >= 2 ? h('div', { class: 'row' }, newPiece) : ''),
+    h('div', { class: 'split' }, h('nav', { class: 'itemsnav', 'aria-label': 'Sessions and pieces' }, items.length ? list : p('Nothing yet.', 'muted')), h('article', { class: 'detail' }, detail)),
+    a.phase >= 3 ? critiquesCard() : '');
+}
+function sessionDetail(id) {
+  const s = Store.get('sessions', id), d = s.data || {};
+  const bits = [h('p', { class: 'eyebrow' }, KIND_LABEL[s.kind] + ' · ' + fmtDate(s.date) + ' · Phase ' + s.phase), h('h2', null, d.topic || d.article || d.point || (d.modelId ? modelById(d.modelId).title : KIND_LABEL[s.kind]))];
+  if (d.sprint) bits.push(p(plural(d.sprint.words, 'word') + ' in ' + mmss(d.sprint.seconds) + ', longest pause ' + mmss(d.sprint.maxPause) + (d.sprint.interrupted ? ', interrupted' : '') + '.', 'muted small'));
+  if (s.kind === 'franklin1') bits.push(h('ol', { class: 'notelist' }, (d.notes || []).map(n => h('li', null, n))), p(L.pendingNotes([s].concat(sessions())) && L.pendingNotes([s].concat(sessions())).id === s.id ? 'Waiting to be rebuilt.' : 'Rebuilt.', 'muted small'));
+  if (s.kind === 'combining') { const set = setById(d.setId); bits.push(h('ol', { class: 'source6' }, set.s.map(t => h('li', null, t)))); (d.ways || []).forEach((w, i) => bits.push(h('h3', null, 'Way ' + (i + 1)), textWithMarks(w, []))); }
+  else if (L.mainText(s)) bits.push(textWithMarks(L.mainText(s), s.marks));
+  if ((s.kind === 'franklin2' || s.kind === 'franklin3') && d.diffs) bits.push(h('details', null, h('summary', null, 'Original and differences'), modelBlock(modelById(d.modelId)), h('ul', { class: 'rules' }, d.diffs.map(x => h('li', null, x)))), p(d.keptAll ? 'Kept every idea.' : 'Some ideas were lost.', d.keptAll ? 'good small' : 'note small'));
+  if (s.kind !== 'franklin1' && s.kind !== 'combining') bits.push(reviewBox('sessions', id));
+  bits.push(marksPanel('sessions', id));
+  bits.push(h('div', { class: 'row end' }, h('button', { class: 'btn quiet danger small', onclick: e => {
+    const b = e.currentTarget; if (b.dataset.sure) { Store.remove('sessions', id); App.sel = null; } else { b.dataset.sure = 1; b.textContent = 'Delete it for good'; }
+  } }, 'Delete session')));
+  return h('div', { class: 'stack' }, bits);
+}
+function pieceDetail(id) {
+  const pc = Store.get('pieces', id);
+  return h('div', { class: 'stack' }, h('p', { class: 'eyebrow' }, 'Piece · Phase ' + pc.phase + ' · ' + (pc.phase >= 3 ? FORMS[pc.form].label : 'Weekend piece')),
+    pc.status !== 'done' ? h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => Engine.start('piece', { data: { pieceId: id }, minutes: pc.phase === 2 ? 60 : 25 }) }, 'Timed session on this piece · ' + (pc.phase === 2 ? 60 : 25) + ' min')) : '',
+    pieceEditor(id, { loud: false }),
+    h('div', { class: 'row end' }, h('button', { class: 'btn quiet danger small', onclick: e => {
+      const b = e.currentTarget; if (b.dataset.sure) { Store.remove('pieces', id); App.sel = null; } else { b.dataset.sure = 1; b.textContent = 'Delete it for good'; }
+    } }, 'Delete piece')));
+}
+function critiquesCard() {
+  const list = Store.list('critiques').sort((x, y) => (y.date || '').localeCompare(x.date || ''));
+  const t = h('input', { type: 'text', placeholder: 'Piece you critiqued', 'aria-label': 'Piece you critiqued' }), w = h('input', { type: 'text', placeholder: 'Where (e.g. Scribophile)', 'aria-label': 'Where' }), u = h('input', { type: 'url', placeholder: 'Link (optional)', 'aria-label': 'Link' });
+  return card('', h('h3', null, 'Critiques you wrote ', h('span', { class: 'muted' }, list.length + ' of 5 for the gate')),
+    p('Writing critiques is training too: spotting problems in other drafts sharpens your own revision.', 'muted small'),
+    h('ul', { class: 'crits' }, list.map(c => h('li', null, fmtDate(c.date) + ' · ', h('strong', null, c.title), c.where ? ' on ' + c.where : '', c.link ? [' · ', h('a', { href: c.link, target: '_blank', rel: 'noopener' }, 'link')] : '',
+      h('button', { class: 'icon', 'aria-label': 'Remove', onclick: () => Store.remove('critiques', c.id) }, '×')))),
+    h('div', { class: 'markrow' }, t, w, u, h('button', { class: 'btn small', onclick: () => { if (!t.value.trim()) return; const id = newId('c'); Store.put('critiques', id, { id, date: L.iso(), title: t.value.trim(), where: w.value.trim(), link: u.value.trim() }); } }, 'Add')));
+}
+
+/* ---------- Errors ---------- */
+function viewErrors() {
+  const a = app(), rows = errorsList().sort((x, y) => (y.dates[y.dates.length - 1] || '').localeCompare(x.dates[x.dates.length - 1] || ''));
+  const counts = L.errorTypeCounts(rows), max = counts[0] ? counts[0].count : 1, top3 = currentTop3();
+  const targets = L.drillTargets(rows, sessions());
+  const type = h('select', { 'aria-label': 'Error type' }, ERROR_TYPES.map(t => h('option', { value: t }, t)));
+  const wrote = h('input', { type: 'text', placeholder: 'What you wrote', 'aria-label': 'What you wrote' }), corr = h('input', { type: 'text', placeholder: 'Correct form', 'aria-label': 'Correct form' });
+  return h('div', { class: 'page' },
+    h('header', { class: 'pagehead' }, h('h1', null, 'Error log'), p('Every error you or Claude find goes here once. When the same type appears three times, it becomes a drill.')),
+    card('', h('h3', null, a.phase >= 2 ? 'Your top 3, frozen when Phase 2 started' : 'Your top 3 so far'), h('p', { class: 'top3' }, top3.length ? top3.map(t => h('span', { class: 'pill red' }, t)) : h('span', { class: 'muted' }, 'None yet.')),
+      h('ul', { class: 'typebars' }, counts.map(c => h('li', null, h('span', { class: 'tl' }, c.type), h('span', { class: 'bar' }, h('span', { style: 'width:' + (c.count / max * 100) + '%' })), h('span', { class: 'gv' }, c.count))))),
+    targets.length ? card('', h('h3', null, 'Drills'), h('ul', { class: 'drills' }, targets.map(t => h('li', null, h('span', null, h('strong', null, t.type), ' · seen ' + t.count + ' times' + (t.drills ? ', drilled ' + plural(t.drills, 'time') : '')),
+      h('button', { class: 'btn small', onclick: () => Engine.start('drill', { data: { type: t.type } }) }, 'Start drill'))))) : '',
+    card('', h('h3', null, 'Add an error'), h('div', { class: 'markrow' }, type, wrote, corr, h('button', { class: 'btn', onclick: () => {
+      if (!wrote.value.trim()) return;
+      const row = L.logError(Store.get('errors', L.errorId(type.value, wrote.value)), { type: type.value, wrote: wrote.value, correct: corr.value, by: 'self', date: L.iso() });
+      Store.put('errors', row.id, row);
+    } }, 'Add'))),
+    h('div', { class: 'scroll' }, h('table', { class: 'tbl errors' }, h('thead', null, h('tr', null, ['Error type', 'What I wrote', 'Correct form', 'Times', 'Last', 'Found by', ''].map(x => h('th', null, x)))),
+      h('tbody', null, rows.map(r => h('tr', null, h('td', null, r.type), h('td', { class: 'wrote' }, r.wrote),
+        h('td', null, h('input', { type: 'text', value: r.correct, 'aria-label': 'Correct form for ' + r.wrote, onchange: e => Store.put('errors', r.id, Object.assign(clone(r), { correct: e.target.value.trim() })) })),
+        h('td', { class: 'n' }, r.dates.length), h('td', null, fmtDate(r.dates[r.dates.length - 1])), h('td', null, r.by === 'plan' ? 'plan' : r.by === 'claude' ? 'Claude' : r.by === 'ai' ? 'old app' : 'you'),
+        h('td', null, h('button', { class: 'icon', 'aria-label': 'Delete row', onclick: () => Store.remove('errors', r.id) }, '×'))))))));
+}
+
+/* ---------- Progress ---------- */
+function barChart(rows) {
+  const W = 640, H = 180, pad = 28, n = rows.length, max = Math.max(150, ...rows.map(r => r.words));
+  const bw = Math.min(46, (W - pad * 2) / n * 0.7), step = (W - pad * 2) / n;
+  const nice = max <= 500 ? 100 : max <= 2000 ? 500 : 1000, top = Math.ceil(max / nice) * nice, y = v => H - 22 - v / top * (H - 40);
+  const ns = 'http://www.w3.org/2000/svg', s = (t, at, txt) => { const e = document.createElementNS(ns, t); for (const k in at) e.setAttribute(k, at[k]); if (txt != null) e.textContent = txt; return e; };
+  const svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'chart', role: 'img', 'aria-label': 'Words written per week' });
+  for (let v = 0; v <= top; v += nice) { svg.append(s('line', { x1: pad, x2: W - 6, y1: y(v), y2: y(v), class: 'grid' }), s('text', { x: pad - 4, y: y(v) + 3, class: 'ax', 'text-anchor': 'end' }, v)); }
+  rows.forEach((r, i) => {
+    const x = pad + i * step + (step - bw) / 2;
+    svg.append(s('rect', { x, y: y(r.words), width: bw, height: Math.max(0, H - 22 - y(r.words)), rx: 2, class: 'b' + (i === n - 1 ? ' last' : '') }));
+    svg.append(s('text', { x: x + bw / 2, y: H - 8, class: 'ax', 'text-anchor': 'middle' }, 'W' + r.week));
+    for (let k = 0; k < Math.min(7, r.sessions); k++) svg.append(s('circle', { cx: x + bw / 2, cy: y(r.words) - 8 - k * 7, r: 2.4, class: 'dot' }));
+  });
+  return svg;
+}
+function viewProgress() {
+  const a = app(), today = App.today, rows = L.weekRows(a, sessions(), errorsList(), today);
+  const g = L.evaluateGates(a, sessions(), pieces(), errorsList(), Store.list('critiques'));
+  const gate = g[a.phase];
+  const done = sessions().filter(s => s.status === 'done');
+  const totalW = done.reduce((t, s) => t + (s.words || 0), 0), totalMin = Math.round(done.reduce((t, s) => t + (s.seconds || 0), 0) / 60);
+  const readMin = Store.list('reading').reduce((t, r) => t + (r.minutes || 0), 0);
+  const stat = (n, l) => h('div', { class: 'stat' }, h('strong', null, n), h('span', null, l));
+  return h('div', { class: 'page' },
+    h('header', { class: 'pagehead' }, h('h1', null, 'Progress'), p('Assume you will miss about a third of sessions. Four a week still works.')),
+    h('div', { class: 'stats' }, stat(done.length, 'sessions'), stat(totalW.toLocaleString(), 'words written'), stat(totalMin, 'minutes writing'), stat(readMin, 'minutes reading')),
+    card('', h('h3', null, 'Words per week ', h('span', { class: 'muted' }, 'dots are days with a session')), h('div', { class: 'scroll' }, barChart(rows.slice(-12)))),
+    card('', h('h3', null, 'Tracker'), h('div', { class: 'scroll' }, trackerTable(rows, gate, a.phase))));
+}
+function trackerTable(rows, gate, phase) {
+  const head = h('thead', null, h('tr', null, ['Week', 'Sessions (of 5)', 'Words written', 'Most common error', 'Gate progress'].map(x => h('th', null, x))));
+  const body = h('tbody', null, rows.slice().reverse().map((r, i) => h('tr', null,
+    h('td', null, r.week, h('small', null, ' ' + fmtDate(r.from))), h('td', { class: 'n' }, r.sessions), h('td', { class: 'n' }, r.words), h('td', null, r.common || '—'),
+    h('td', null, i === 0 && gate ? gate.items.filter(x => x.met).length + ' of ' + gate.items.length + ' (Phase ' + phase + ')' : ''))));
+  return h('table', { class: 'tbl' }, head, body);
+}
+
+/* ---------- Setup ---------- */
+function field(label, input, help) { return h('label', { class: 'field' }, label, input, help ? h('small', { class: 'muted' }, help) : ''); }
+function viewSetup() {
+  const a = app();
+  const txt = (k, ph) => h('input', { type: 'text', value: a[k] || '', placeholder: ph || '', onchange: e => saveApp({ [k]: e.target.value.trim() }) });
+  const sel = (k, opts, num) => h('select', { onchange: e => saveApp({ [k]: num ? Number(e.target.value) : e.target.value }) }, opts.map(([v, l]) => h('option', { value: v, selected: String(a[k]) === String(v) }, l)));
+  const tog = (k, l) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!a[k], onchange: e => saveApp({ [k]: e.target.checked }) }), ' ' + l);
+  const wkend = h('div', { class: 'days' }, DAY.map((d, i) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: (a.restDays || []).includes(i),
+    onchange: e => saveApp({ restDays: e.target.checked ? (a.restDays || []).concat([i]).sort() : (a.restDays || []).filter(x => x !== i) }) }), ' ' + d)));
+  return h('div', { class: 'page' },
+    h('header', { class: 'pagehead' }, h('h1', null, 'Setup')),
+    card('', h('h3', null, 'Anchor'), p('Write one line before you start: "When I [existing daily routine], I will write for 25 minutes at [place]."', 'muted small'),
+      field('When I…', txt('anchorRoutine', 'finish my morning coffee')), field('I will write for 25 minutes at…', txt('anchorPlace', 'my desk at the Hub'))),
+    card('', h('h3', null, 'Week'),
+      field('Plan start date', h('input', { type: 'date', value: a.startDate, onchange: e => e.target.value && saveApp({ startDate: e.target.value }) })),
+      field('Week starts on', sel('weekStart', [[0, 'Sunday'], [6, 'Saturday'], [1, 'Monday']], true)),
+      field('Weekend days', wkend, 'Phase 1 rests on these days. From Phase 2 the 60-minute piece happens on them.')),
+    card('', h('h3', null, 'Writing sessions'),
+      tog('noDelete', 'No deleting during the timed write'),
+      field('Longest pause that still counts as "without stopping"', sel('pauseLimit', [[30, '30 seconds'], [60, '1 minute'], [90, '90 seconds'], [120, '2 minutes']], true)),
+      field('Claude reviews per week', sel('reviewsPerWeek', [[1, '1 (the plan)'], [2, '2'], [3, '3']], true), 'Self-check comes first every time.'),
+      tog('sound', 'Chime when a step’s time is up')),
+    card('', h('h3', null, 'Phases 3 and 4'),
+      field('Form', sel('form', Object.entries(FORMS).map(([k, f]) => [k, f.label + ' (' + f.min + '-' + f.max + ' words)'])), 'Pick one form for three months. If you can’t decide, start with essays.'),
+      field('Where you will publish', txt('publishPlace', 'Substack, Medium, LinkedIn or a blog for the Hub')),
+      field('Current phase', sel('phase', [[1, 'Phase 1'], [2, 'Phase 2'], [3, 'Phase 3'], [4, 'Phase 4']], true), 'Normally the gate moves you on. Change this only to correct a mistake.')),
+    window.desktop ? desktopClaudeCard() : '', modelsCard(), dataCard());
+}
+function modelsCard() {
+  const own = Store.list('models');
+  const au = h('input', { type: 'text', placeholder: 'Author', 'aria-label': 'Author' }), ti = h('input', { type: 'text', placeholder: 'Title', 'aria-label': 'Title' });
+  const fo = h('select', { 'aria-label': 'Form' }, h('option', { value: 'essay' }, 'Essay'), h('option', { value: 'story' }, 'Story'));
+  const tx = h('textarea', { class: 'sheet small', rows: 5, placeholder: 'Paste a paragraph of about 150 words', 'aria-label': 'Paragraph' });
+  const out = h('p', { class: 'muted small' }, 'Add only text you may copy: public domain, or your own copy of a passage for private practice.');
+  return card('', h('h3', null, 'Model paragraphs'),
+    h('ul', { class: 'models' }, allModels().map(m => h('li', null, h('strong', null, m.author), ' · ' + m.title + ' · ' + (m.form || 'essay') + ' · ' + plural(m.words || L.countWords(m.text), 'word'),
+      m.source ? [' · ', h('a', { href: m.source, target: '_blank', rel: 'noopener' }, 'check the source')] : '',
+      own.includes(m) ? h('button', { class: 'icon', 'aria-label': 'Remove', onclick: () => Store.remove('models', m.id) }, '×') : ''))),
+    h('div', { class: 'markrow' }, au, ti, fo), tx, out,
+    h('button', { class: 'btn', onclick: () => {
+      const w = L.countWords(tx.value); if (!au.value.trim() || w < 60) { out.textContent = 'Add the author and a paragraph of at least 60 words.'; return; }
+      const id = newId('m'); Store.put('models', id, { id, author: au.value.trim(), title: ti.value.trim() || 'Untitled', year: '', form: fo.value, source: '', text: tx.value.trim().replace(/\s+/g, ' '), words: w });
+    } }, 'Add paragraph'));
+}
+/* Desktop build only: Claude reviews through the person's own Anthropic API key, kept encrypted by Windows on this computer. */
+function desktopClaudeCard() {
+  const key = h('input', { type: 'password', autocomplete: 'off', placeholder: 'sk-ant-\u2026', 'aria-label': 'Anthropic API key', id: 'apikey' });
+  const out = h('p', { class: 'muted small' }, App.sample ? 'A key is saved. Reviews and repair checks go to Claude with it.' : 'No key saved. Reviews fall back to copy and paste.');
+  const refresh = async () => { App.sample = await window.claude.use('sample'); render(); };
+  return card('', h('h3', null, 'Claude reviews on this computer'),
+    p(['Reviews use your own Anthropic API key, from ', h('a', { href: 'https://console.anthropic.com/settings/keys', target: '_blank', rel: 'noopener' }, 'console.anthropic.com'),
+      '. The key is encrypted with Windows\u2019 own protection and stays on this computer. Each review costs a few cents of API usage.'], 'small'),
+    h('div', { class: 'markrow' }, key, h('button', { class: 'btn', onclick: async () => {
+      const v = key.value.trim(); if (!/^sk-ant-/.test(v)) { out.textContent = 'That does not look like an Anthropic key (it starts with sk-ant-).'; return; }
+      try { await window.desktop.setKey(v); key.value = ''; await refresh(); } catch (e) { out.textContent = 'The key could not be saved: ' + ((e && e.message) || e); }
+    } }, 'Save key'), App.sample ? h('button', { class: 'btn quiet danger', onclick: async () => { await window.desktop.clearKey(); await refresh(); } }, 'Remove key') : ''), out);
+}
+function dataCard() {
+  const where = window.desktop ? 'Your data is saved on this computer, in your AppData folder. A dated copy is kept each day for the last 14 days. Backups you export go to your Documents folder.' : Store.mode === 'db' ? 'Your data is saved to this app’s private storage, readable only by you. It follows you to any device where you open this app in Claude.'
+    : 'This page is running outside the Claude viewer, so your data is kept in this browser only. Export it regularly.';
+  const file = h('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Backup file' });
+  const paste = h('textarea', { class: 'sheet small', rows: 3, placeholder: 'Or paste the JSON here', 'aria-label': 'Pasted JSON' });
+  const out = h('div', { class: 'small' });
+  const preview = txt => {
+    try { App.importPreview = readImport(txt); out.replaceChildren(importReport(App.importPreview)); }
+    catch (e) { App.importPreview = null; out.replaceChildren(p(e.message, 'warn')); }
+  };
+  file.addEventListener('change', () => { const f = file.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => preview(String(r.result)); r.readAsText(f); });
+  return card('', h('h3', null, 'Your data'), p(where, 'small'),
+    window.desktop ? h('div', { class: 'row' }, h('button', { class: 'btn quiet small', onclick: () => window.desktop.openDataFolder() }, 'Open the data folder')) : '',
+    h('div', { class: 'row' }, App.downloads ? h('button', { class: 'btn', onclick: exportData }, 'Export a backup') : h('button', { class: 'btn', onclick: e => copyText(JSON.stringify(Store.dump()), e.currentTarget.nextSibling || e.currentTarget) }, 'Copy a backup'), h('span', { class: 'muted small' })),
+    h('h3', null, 'Import'), p('Bring in an Export file from Recovery Studio or Unaided Studio, or a backup from this app. Anything already here is kept; nothing is added twice.', 'muted small'),
+    file, paste, h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => preview(paste.value) }, 'Check it')), out);
+}
+function importReport(plan) {
+  const r = plan.report;
+  return h('div', { class: 'review' }, h('p', null, h('strong', null, 'Found: '), r.sources.join(', ') + '.'),
+    h('p', null, [plural(r.sessions, 'session'), plural(r.pieces, 'piece'), plural(r.errors, 'error row'), plural(r.models, 'model')].join(', ') + ' to add.'),
+    h('button', { class: 'btn primary', onclick: () => { for (const w of plan.writes) Store.put(w.coll, w.id, w.doc, true); App.importPreview = null; App.notice = 'Imported ' + plural(plan.writes.length - 1, 'item') + '.'; render(); } }, 'Import it'));
+}
+
+/* ---------- first run ---------- */
+function onboarding() {
+  const st = { routine: '', place: '', start: L.iso(), wk: [5, 6] };
+  const days = h('div', { class: 'days' }, DAY.map((d, i) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: st.wk.includes(i), onchange: e => { st.wk = e.target.checked ? st.wk.concat([i]) : st.wk.filter(x => x !== i); } }), ' ' + d)));
+  return h('div', { class: 'page onboard' },
+    h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, 'English Writing Recovery'), h('h1', null, 'Your writing is out of practice, not gone.'),
+      p('Six months at about 30 minutes a day, in four phases. Only unaided writing brings it back: you write every word yourself, and Claude only points at problems after the draft is done.')),
+    card('', h('h3', null, 'Anchor it'), p('A fixed cue beats waiting for free time.', 'muted small'),
+      h('p', { class: 'anchor form' }, 'When I ', h('input', { type: 'text', placeholder: 'finish my morning coffee', 'aria-label': 'Existing daily routine', oninput: e => { st.routine = e.target.value; } }),
+        ', I will write for 25 minutes at ', h('input', { type: 'text', placeholder: 'my desk at the Hub', 'aria-label': 'Place', oninput: e => { st.place = e.target.value; } }), '.'),
+      field('Weekend days', days, 'Friday and Saturday by default.'),
+      field('Start date', h('input', { type: 'date', value: st.start, onchange: e => { st.start = e.target.value || L.iso(); } })),
+      h('button', { class: 'btn primary big', onclick: () => {
+        const a = Object.assign(defaultApp(st.start), { anchorRoutine: st.routine.trim(), anchorPlace: st.place.trim(), restDays: st.wk.sort() });
+        a.phaseStarted = { 1: st.start };
+        Store.put('state', 'app', a, true);
+        for (const e of PLAN_ERRORS) { const row = L.logError(null, Object.assign({ by: 'plan', date: st.start }, e)); Store.put('errors', row.id, row, true); }
+        go('today');
+      } }, 'Start the plan')),
+    card('', h('h3', null, 'Coming from the old studios?'), p('Start the plan first, then use Import in Setup with an Export file from Recovery Studio or Unaided Studio.', 'muted small')));
+}
+
+/* ==== src/app_events.js ==== */
+/* app_events.js: routing, import and export, boot. Input guards live with the writing surface (writeArea). */
+'use strict';
+
+function readImport(txt) {
+  let obj;
+  try { obj = JSON.parse(txt); } catch (e) { throw new Error('That is not valid JSON. Use the file from the old app’s Export button.'); }
+  if (obj && obj.format === 'english-writing-recovery/v3') {
+    const writes = []; const rep = { sources: ['Backup from this app'], sessions: 0, pieces: 0, errors: 0, models: 0 };
+    if (!app() && obj.app) writes.push({ coll: 'state', id: 'app', doc: obj.app });
+    for (const c of COLLS) for (const [id, doc] of Object.entries(obj[c] || {})) if (!Store.get(c, id)) { writes.push({ coll: c, id, doc }); if (c in rep) rep[c]++; }
+    return { writes, report: rep };
+  }
+  const bundle = M.readBundle(obj);
+  return M.mergePlan(Store.S, bundle, L.iso());
+}
+
+function exportData() {
+  if (!App.downloads) return;
+  App.downloads.save({ filename: 'english-writing-recovery-' + L.iso() + '.json', data: JSON.stringify(Store.dump(), null, 1) })
+    .then(r => { App.notice = typeof r === 'string' && r !== 'saved' ? 'Backup saved to ' + r : ''; render(); })
+    .catch(e => { App.notice = e && e.code === 'unavailable' ? 'Saving files is not available here.' : 'The backup was not saved.'; if (e && e.code === 'unavailable') App.downloads = null; render(); });
+}
+
+let renderQueued = false;
+function queueRender() { if (renderQueued) return; renderQueued = true; requestAnimationFrame(() => { renderQueued = false; render(); }); }
+
+async function boot() {
+  const routeFromHash = () => { const r = (location.hash || '').slice(1); return VIEWS.some(v => v[0] === r) ? r : null; };
+  App.route = routeFromHash() || 'today';
+  window.addEventListener('hashchange', () => { const r = routeFromHash(); if (r && r !== App.route) { App.route = r; render(); } });
+  Store.onChange = queueRender;
+  render();
+  await Store.init();
+  render();
+  if (window.claude && window.claude.use) {
+    window.claude.use('sample').then(s => { App.sample = s; queueRender(); }).catch(() => {});
+    window.claude.use('downloads').then(d => { App.downloads = d; queueRender(); }).catch(() => {});
+  }
+  setInterval(() => { if (L.iso() !== App.today && document.getElementById('focus').hidden) render(); }, 60000);
+  const flush = () => { if (Engine.s && !Engine.done) Engine.save(); Store.flush(); };
+  window.addEventListener('pagehide', flush);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+}
+
+boot();
+
+
+</script>
