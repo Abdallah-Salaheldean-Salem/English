@@ -1,6 +1,6 @@
 /* Service worker for the phone app. The page is network-first so a new version arrives on the next open with signal;
    everything falls back to the cache offline. Fonts are cached as they load. */
-const CACHE = 'ewr-0683738332b5';
+const CACHE = 'ewr-e1dbe681485a';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
