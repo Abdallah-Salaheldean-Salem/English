@@ -2,7 +2,7 @@
 
 Personal daily-practice app built from the English Writing Recovery Plan. It replaces the two AI Studio apps (Recovery Studio and Unaided Studio) with one app. It is one self-contained page, published as a private artifact. Source: `src/` concatenated by `build.py` into `dist/english-writing-recovery.html`.
 
-Version 2, 4 November 2026. Changes from v1 are marked **(v2)**.
+Version 3, 9 November 2026, following the updated roadmap (five phases, 0-4). Changes from v1 are marked **(v2)** or **(v3)**.
 
 ## Modules
 | File | Responsibility |
@@ -13,6 +13,7 @@ Version 2, 4 November 2026. Changes from v1 are marked **(v2)**.
 | `store.js` | One in-memory state, one write in flight per document, artifact database or browser-only fallback. |
 | `app_core.js` | DOM helper, timer, session engine, sprint tracking, autosave, error logging, Claude calls. |
 | `app_focus.js` | Full-screen session steps, guarded writing surface. |
+| `app_phase0.js` **(v3)** | Phase 0 (placement test, grammar sessions, gate test), the sentence imitation drill, and `claudeTask`: one Claude request that returns JSON, as a button in the viewer or with a key, otherwise copy the request and paste the reply. |
 | `app_views.js` | Today, Plan, Writing, Errors, Progress, Setup, first run, charts, piece workspace. |
 | `app_events.js` | Routing, import and export, boot. |
 | `index.html`, `style.css` **(v2)** | Page shell and styles. Light and dark themes. Phone layout below 900 px. |
@@ -35,6 +36,17 @@ Version 2, 4 November 2026. Changes from v1 are marked **(v2)**.
 - `reading/<date>` `{date, minutes, book, note}`, `critiques/<id>` `{id, date, title, where, link}`, `models/<id>` `{id, author, title, year, form, source, text, words}`.
 - A mark: `{quote, at, type, hint, by:'self'|'claude'|'ai', fixed, fix, tries, note, errId, lastHint?}`. No field holds a suggested correction from Claude. `fix` is always the writer's own repair.
 - Error types are a fixed list (`ERROR_TYPES`) so counts and the top 3 stay comparable. Claude must use it; anything else becomes `Other`.
+
+## Roadmap v3: Phase 0 and the imitation drill **(v3)**
+- Five phases: 0 Foundations (weeks 1-6), 1 Restart (7-10), 2 Control (11-18), 3 Whole pieces (months 5-7), 4 Publish (month 8 on). New plans start at Phase 0; a plan started on the old four-phase version is offered Phase 0 once on Today.
+- Phase 0: the placement test (10 sentences to correct, 5 to write) is marked by Claude per sentence without the fix. Wrong items flag study areas by the roadmap's item table (`AREAS`). Grammar session = one Murphy unit (15 min: area, unit, rule/exercises/key ticked) + 5 sentences that use it (10 min). The person ticks an area done. When all flagged areas are done, Claude writes a new 10-sentence test on those areas; 9 or more right passes.
+- Gate 0: flagged areas done; best gate test >= 9; 20 imitation sentences marked.
+- Sentence imitation drill (article session): paste 2-3 paragraphs (paste allowed only here), Claude breaks one paragraph down (structure + 3 patterns whose model sentences must be quoted exactly from the article, else rejected), 3 imitations per pattern with the models hidden, Claude marks them. From the fifth drill the person writes the patterns and Claude only checks them. Marking a drill never uses the weekly review.
+- When it runs: Phase 0 and Phase 1 on the 2nd and 4th weekday sessions of the week (in place of the 5 sentences / the timed writing; no sprint that day); Phase 2 on the 4th weekday, once a week, in place of that day's drill (the Franklin queue is not disturbed). Phases 3-4 use Franklin rebuilds as before. Extra article sessions are always available from Today.
+- Error log: 11 rows from the plan; rows missing from an existing log are added once (`app.planRows2`). New error types: its vs it's, Conditional form, Hyphen before a noun, Space before punctuation.
+- Six-step paragraph: 3-4 notes of 2-4 words; order by time, importance or logic; close by restating the point and reading aloud (ticked).
+- Plan page adds the imitation drill, "When things go wrong" and "How confident is this plan?".
+- New data: `state/app.p0` = `{flagged[], placementId, areas{id:{done, units[]}}, test[{sentence, area}] | null}`; session kinds `placement` `{answers[10], partB, result[{n, ok, type, hint}], score}`, `gatetest` `{sentences, answers, result, score}`, `grammar` `{area, unit, checks, text}`, `imitation`; any session with `data.imitate` or kind `imitation` has `{article, link, source, patterns[3]{model, pattern, grammar}, breakdown, selfFind, patternCheck, imitations[3][3]}` and `reviewMode: 'drill'` when marked.
 
 ## Decisions where the plan left room
 1. Drills are an ordered queue, not fixed weekdays, so a missed day never orphans a Franklin rebuild. Phase 2 order: notes, combining, rebuild, summary, paragraph. The rebuild waits at least one calendar day and one other drill after the notes. Every second rebuild is a shuffle week.

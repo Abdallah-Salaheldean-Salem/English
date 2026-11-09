@@ -5,7 +5,8 @@ const ERROR_TYPES = [
   'Missing article', 'Article with a plural', 'Wrong article', 'Missing "to" before a verb',
   'Noun used as an adjective', 'Spelling', 'Subject-verb agreement', 'Verb tense',
   'Verb form', 'Preposition', 'Word order', 'Singular or plural noun', 'Word choice',
-  'Run-on or comma splice', 'Sentence fragment', 'Punctuation', 'Capitalization', 'Other'
+  'Run-on or comma splice', 'Sentence fragment', 'Punctuation', 'Capitalization', "its vs it's",
+  'Conditional form', 'Hyphen before a noun', 'Space before punctuation', 'Other'
 ];
 
 /* The first error-log rows come from the plan itself (by: 'plan'). */
@@ -14,25 +15,67 @@ const PLAN_ERRORS = [
   { type: 'Article with a plural', wrote: 'give me a examples', correct: 'give me examples' },
   { type: 'Missing "to" before a verb', wrote: 'how produce them', correct: 'how to produce them' },
   { type: 'Noun used as an adjective', wrote: 'a health mindset', correct: 'a healthy mindset' },
-  { type: 'Spelling', wrote: 'project mangment', correct: 'project management' }
+  { type: 'Spelling', wrote: 'project mangment', correct: 'project management' },
+  { type: 'Spelling', wrote: 'this app relay on', correct: 'this app relies on' },
+  { type: "its vs it's", wrote: 'its making me', correct: "it's making me" },
+  { type: 'Capitalization', wrote: 'i lost', correct: 'I lost' },
+  { type: 'Conditional form', wrote: 'if you take', correct: 'if you took' },
+  { type: 'Hyphen before a noun', wrote: 'well written articles', correct: 'well-written articles' },
+  { type: 'Space before punctuation', wrote: 'have that ?', correct: 'have that?' }
 ];
 
+/* Phase 0 placement test (roadmap section 4). Part A: correct each sentence; Part B: 5 sentences about yesterday. */
+const PLACEMENT = [
+  'She work in a lab every day.',
+  'Yesterday I go to the hub and fix the printer.',
+  'I have finish my report last week.',
+  'He is engineer at a university.',
+  'We need more informations about the project.',
+  'The machine is very use for students.',
+  'Its important to test the board before you ship it.',
+  'I was tired, I went home early.',
+  'The students which come to the lab learns fast.',
+  'i dont know why the code fail.'
+];
+/* The six study areas and the Part A items that test each one. */
+const AREAS = [
+  { id: 'core', name: 'Sentence core', covers: 'A subject and a verb in every sentence; joining two sentences correctly', items: [8] },
+  { id: 'verbs', name: 'Verb forms', covers: '-s after he, she, it; past simple ("I wrote") vs present perfect ("I have written")', items: [1, 2, 3, 9, 10] },
+  { id: 'articles', name: 'Articles and nouns', covers: 'a, an, the; plurals; words with no plural, such as information', items: [4, 5] },
+  { id: 'forms', name: 'Word forms', covers: 'Noun, adjective, adverb: use vs useful, health vs healthy', items: [6] },
+  { id: 'joining', name: 'Joining words', covers: 'and, but, so, because, who, which', items: [8, 9] },
+  { id: 'punct', name: 'Punctuation', covers: "Capitals, its vs it's, short forms like don't", items: [7, 10] }
+];
+const IMITATION_EXAMPLE = {
+  model: 'Most engineers learn to write the way they learn to debug: slowly, by repeating the same mistake until it hurts.',
+  pattern: '[Group] + [verb] + the way they + [verb]: [how], by + [-ing verb] + until + [clause].',
+  grammar: 'learn to + base verb; by + -ing for the method; until + subject + verb.',
+  imitation: 'Most students learn to cook the way they learn to drive: \u2026'
+};
+
 const PHASES = {
-  1: { name: 'Restart', span: 'Weeks 1-4', goal: 'Write plain, correct sentences again without freezing. Volume and speed matter, quality does not yet.',
+  0: { name: 'Foundations', span: 'Weeks 1-6', goal: 'Rebuild sentence grammar before you write freely.',
+       rules: ['Take the placement test once, without AI, a checker or a dictionary. Guess and mark unsure answers with "?".',
+               'Study only the areas the test flags, one Murphy unit a day: rule, exercises, answer key.',
+               'Then write 5 sentences of your own that use that unit\u2019s grammar.',
+               'Twice a week, do the sentence imitation drill instead of the 5 sentences.'] },
+  1: { name: 'Restart', span: 'Weeks 7-10', goal: 'Write plain, correct sentences again without freezing. Speed and volume matter more than quality.',
        rules: ['One idea per sentence.', 'Subject and verb within the first five words.', '10-20 words per sentence.',
-               'When stuck, write the simplest true sentence ("The board did not boot.") and build from it.'] },
-  2: { name: 'Control', span: 'Weeks 5-12', goal: 'Control paragraphs on purpose, not by luck. One drill a weekday, one piece at the weekend.',
+               'When stuck, write the simplest true sentence ("The board did not boot.") and build from it.',
+               'Twice a week, an article session replaces the timed writing.'] },
+  2: { name: 'Control', span: 'Weeks 11-18', goal: 'Control paragraphs on purpose, not by luck. One drill a weekday, one piece at the weekend.',
        rules: ['The point is in the first sentence of each paragraph.', 'Each sentence picks up something from the one before it.',
-               'No sentence runs past 25 words.'] },
-  3: { name: 'Finished pieces', span: 'Months 4-6', goal: 'Finish whole pieces that a stranger would read to the end. One form for three months.',
+               'No sentence runs past 25 words.', 'Once a week, an article session replaces one weekday drill.'] },
+  3: { name: 'Whole pieces', span: 'Months 5-7', goal: 'Finish whole pieces that a stranger would read to the end. One form for three months.',
        rules: ['Week A: plan and draft the piece.', 'Week B: revise, post for critique, revise again.',
                'Keep 2 weekday drills: a Franklin rebuild and sentence combining.'] },
-  4: { name: 'Spare-time writer', span: 'Month 7 on', goal: 'Publish once a month in one public place.',
+  4: { name: 'Publish', span: 'Month 8 on', goal: 'Publish one piece a month in one public place. No gate; this phase continues.',
        rules: ['Weeks 1-2: draft the piece.', 'Week 3: get critique and revise.', 'Week 4: final read-aloud pass, then publish.',
                'Every week: one Franklin rebuild on a writer you admire.'] }
 };
 
 const GATE_TEXT = {
+  0: ['Every area the placement test flagged is done', '9 or more right on a new 10-sentence test from Claude', '20 sentence imitations written and marked'],
   1: ['15 sessions done', '150 words written in 15 minutes without stopping', 'Your most frequent errors identified (4 types seen at least twice)'],
   2: ['6 Franklin rebuilds that keep every idea of the original', '8 weekend pieces finished and revised', 'Top 3 errors from Phase 1 at most once per 300 words'],
   3: ['3 finished pieces of 800+ words', 'Each revised after feedback from at least 2 readers', '5 critiques written for other writers']
@@ -55,6 +98,7 @@ const REVISION_CHECKS = [
 ];
 
 const BOOKS = [
+  { id: 'murphy', phase: 0, author: 'Raymond Murphy', title: 'English Grammar in Use (intermediate)', why: 'Two-page grammar units with exercises and an answer key.' },
   { id: 'klinkenborg', phase: 1, author: 'Verlyn Klinkenborg', title: 'Several Short Sentences About Writing', why: 'Teaches writing one sentence at a time, which is exactly where you are starting.' },
   { id: 'williams', phase: 2, author: 'Joseph M. Williams and Joseph Bizup', title: 'Style: Lessons in Clarity and Grace', why: 'The clearest guide to why some sentences are easy to read and others are not.' },
   { id: 'zinsser', phase: 3, form: 'essay', author: 'William Zinsser', title: 'On Writing Well', why: 'The standard guide to clear nonfiction.' },
@@ -113,7 +157,24 @@ const SITES = [
 const KIND_LABEL = {
   phase1: 'Daily session', short: 'Short session', franklin1: 'Franklin rebuild, part 1', franklin2: 'Franklin rebuild, part 2',
   franklin3: 'Franklin rebuild (one sitting)', combining: 'Sentence combining', summary: '100-word summary',
-  paragraph: 'Six-step paragraph', piece: 'Piece session', drill: 'Error drill'
+  paragraph: 'Six-step paragraph', piece: 'Piece session', drill: 'Error drill',
+  placement: 'Placement test', gatetest: 'Phase 0 gate test', grammar: 'Grammar session', imitation: 'Article session'
 };
 
-if (typeof module !== 'undefined') module.exports = { ERROR_TYPES, PLAN_ERRORS, PHASES, GATE_TEXT, RULES_TABLE, REVISION_CHECKS, BOOKS, FORMS, TOPICS, COMBINING, SITES, KIND_LABEL };
+const CONFIDENCE = [
+  ['Daily, spaced practice with feedback', 'High', 'Kellogg (2008), research on writing expertise'],
+  ['Planning, revising, summarizing and sentence combining', 'High', 'Writing Next review (Graham and Perin, 2007)'],
+  ['Reading improves writing', 'High', 'Graham et al. (2018) meta-analysis'],
+  ["Franklin's rebuild method", 'Medium', "Franklin's own account; a strong historical example, not a controlled study"],
+  ['AI drafting weakens unaided writing', 'Low to medium', 'One small, short study (54 students)'],
+  ['"Fluency returns in 2-3 weeks" and the phase timings', 'Low', "Claude's estimates, not research findings"]
+];
+const TROUBLE = [
+  ['You missed a few days', "Carry on from where you stopped. Don't try to catch up."],
+  ['You missed two weeks', "Restart at the beginning of your current phase's daily session, not at Phase 0."],
+  ['A gate feels impossible', 'Send Claude your last three pieces. The problem is usually one error type, and that becomes a drill.'],
+  ['You want to use AI to "just fix it"', 'Write the sentence badly first, then ask Claude what is wrong, not for a corrected version.'],
+  ['A phase takes much longer than its timing', 'That is fine. The gates decide when you move on, not the calendar.']
+];
+
+if (typeof module !== 'undefined') module.exports = { ERROR_TYPES, PLAN_ERRORS, PLACEMENT, AREAS, IMITATION_EXAMPLE, CONFIDENCE, TROUBLE, PHASES, GATE_TEXT, RULES_TABLE, REVISION_CHECKS, BOOKS, FORMS, TOPICS, COMBINING, SITES, KIND_LABEL };

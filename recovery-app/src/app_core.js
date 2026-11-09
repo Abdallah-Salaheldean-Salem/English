@@ -34,7 +34,7 @@ const setById = id => COMBINING.find(c => c.id === id) || COMBINING[0];
 const checkIds = REVISION_CHECKS.map(c => c[0]);
 
 function defaultApp(today) {
-  return { startDate: today, phase: 1, phaseStarted: { 1: today }, weekStart: 0, restDays: [5, 6], anchorRoutine: '', anchorPlace: '',
+  return { startDate: today, phase: 0, phaseStarted: { 0: today }, p0Offered: true, planRows2: true, weekStart: 0, restDays: [5, 6], anchorRoutine: '', anchorPlace: '',
     noDelete: true, pauseLimit: 60, reviewsPerWeek: 1, sound: true, form: 'essay', publishPlace: '', top3: [], books: {} };
 }
 function saveApp(patch) { Store.put('state', 'app', Object.assign(clone(app()), patch)); }
@@ -71,6 +71,8 @@ const Engine = {
     if (kind === 'phase1' || kind === 'short') data.topic = data.topic || TOPICS[(sessions().length * 7) % TOPICS.length];
     if (kind === 'phase1' && !data.modelId) data.modelId = L.nextModel(allModels(), 'essay', sessions()).id;
     if ((kind === 'franklin1' || kind === 'franklin3') && !data.modelId) data.modelId = L.nextModel(allModels(), a.phase >= 3 ? a.form : 'essay', sessions()).id;
+    if (L.hasImitation({ kind, data })) data.imitations = data.imitations || blankImitations();
+    if (kind === 'placement') { data.answers = PLACEMENT.slice(); data.partB = ''; }
     if (kind === 'combining' && !data.setId) {
       const used = new Set(sessions().filter(s => s.kind === 'combining').map(s => s.data && s.data.setId));
       data.setId = (COMBINING.find(c => !used.has(c.id)) || COMBINING[sessions().length % COMBINING.length]).id;

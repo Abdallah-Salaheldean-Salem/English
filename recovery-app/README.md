@@ -1,6 +1,6 @@
 # English Writing Recovery
 
-One app for the English Writing Recovery Plan. It replaces the two AI Studio studios in `../1` and `../2`. Six months at about 30 minutes a day, in four phases: timed unaided writing, Franklin rebuilds, sentence combining, finished pieces, and publishing. Claude marks problems after a draft is done and never rewrites anything; you do the repair.
+One app for the English Writing Recovery Plan. It replaces the two AI Studio studios in `../1` and `../2`. About eight months at roughly 30 minutes a day, in five phases: grammar foundations with a placement test, timed unaided writing, paragraph drills (Franklin rebuilds, sentence combining, sentence imitation), finished pieces, and publishing. Claude marks problems after a draft is done and never rewrites anything; you do the repair.
 
 ## Run it
 

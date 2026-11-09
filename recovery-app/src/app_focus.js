@@ -2,7 +2,8 @@
 'use strict';
 
 const STEP_NAME = { copy: 'Copy', write: 'Write', check: 'Check', read: 'Read', notes: 'Notes', order: 'Order', rebuild: 'Rebuild', compare: 'Compare',
-  combine: 'Combine', source: 'Article', point: 'Point', draft: 'Draft', link: 'Link', close: 'Close', study: 'Study', practice: 'Practice', work: 'Work' };
+  combine: 'Combine', source: 'Article', point: 'Point', draft: 'Draft', link: 'Link', close: 'Close', study: 'Study', practice: 'Practice', work: 'Work',
+  test: 'Test', gtest: 'Test', unit: 'Grammar unit', use: 'Use it', article: 'Article', patterns: 'Patterns', imitate: 'Imitate' };
 
 /* A writing surface. Paste is always off. In a sprint step with "no deleting" on, deletion is off too. */
 function writeArea(o) {
@@ -256,25 +257,26 @@ const STEPS = {
 
   point(s) {
     const d = s.data;
-    return { el: h('div', { class: 'stack' }, p('Step 1 of 6: the point. Write the one sentence this paragraph must prove.', 'lead'),
+    return { el: h('div', { class: 'stack' }, p('Step 1 of 6: the point. The one thing the reader should know or believe, as one sentence.', 'lead'),
+      p('Add value, not just clarity: state a problem the reader cares about, not a description. "The Hub has four pillars" describes. "Students have ideas but nowhere to build them" states a problem.', 'muted small'),
       h('input', { type: 'text', class: 'big', value: d.point || '', 'aria-label': 'The point', oninput: e => { d.point = e.target.value; } })),
       ready: () => (d.point || '').trim() ? null : 'Write the point.' };
   },
   'paragraph:notes'(s) {
     const d = s.data;
-    return { el: h('div', { class: 'stack' }, p('Step 2: notes. 3-6 short notes that support the point, one per line.', 'lead'), p(d.point, 'topic'),
+    return { el: h('div', { class: 'stack' }, p('Step 2: notes. 3-4 supporting ideas as short notes of 2-4 words each, one per line.', 'lead'), p(d.point, 'topic'),
       h('textarea', { class: 'sheet small', rows: 6, value: (d.notes || []).join('\n'), oninput: e => { d.notes = e.target.value.split('\n').map(x => x.trim()).filter(Boolean); } })),
-      ready: () => { const n = (d.notes || []).length; return n >= 3 && n <= 6 ? null : 'Write 3-6 notes, one per line.'; } };
+      ready: () => { const n = (d.notes || []).length; return n >= 3 && n <= 4 ? null : 'Write 3-4 notes, one per line.'; } };
   },
   'paragraph:order'(s) {
     const d = s.data, order = d.notes.map((_, i) => i);
-    return { el: h('div', { class: 'stack' }, p('Step 3: order. Arrange the notes so each one leads into the next.', 'lead'),
+    return { el: h('div', { class: 'stack' }, p('Step 3: order. By time for a process, by importance for an argument, by logic for a definition.', 'lead'),
       moveList(d.notes, order, o => { d.order = o.slice(); })),
       ready: () => null, commit: () => { if (d.order) d.notes = d.order.map(i => d.notes[i]); delete d.order; } };
   },
   draft(s, flash) {
     const d = s.data, c = counter('dw', L.countWords(d.draft) + ' words');
-    return { el: h('div', { class: 'stack' }, p('Step 4: draft. Open with the point, then follow your notes in order.', 'lead'),
+    return { el: h('div', { class: 'stack' }, p('Step 4: draft. Open with the point, then turn each note into one sentence with the subject and verb near the start.', 'lead'),
       h('div', { class: 'plan' }, h('p', { class: 'topic' }, d.point), h('ol', { class: 'notelist' }, d.notes.map(n => h('li', null, n)))),
       writeArea({ id: 'draft', value: d.draft || '', rows: 8, flash, oninput: v => { d.draft = v; c.textContent = L.countWords(v) + ' words'; } }), h('div', { class: 'meta' }, c)),
       ready: () => L.countWords(d.draft) >= 40 ? null : 'Draft the paragraph first (40+ words).' };
@@ -284,7 +286,7 @@ const STEPS = {
     const box = h('div', { class: 'stack' });
     const draw = () => {
       const sents = L.splitSentences(d.draft); d.links = sents.map((_, i) => (d.links || [])[i] || false);
-      box.replaceChildren(p('Step 5: link. Each sentence should pick up something from the one before it. Tick each pair that links; fix the ones that do not.', 'lead'),
+      box.replaceChildren(p('Step 5: link. Begin each sentence with a word or idea from the one before, or a connector (because, so, but, next, finally). Tick each pair that links; fix the ones that do not.', 'lead'),
         h('ol', { class: 'pairs' }, sents.slice(1).map((t, i) => h('li', null, h('p', { class: 'prev' }, sents[i]), h('label', { class: 'check' },
           h('input', { type: 'checkbox', checked: d.links[i + 1], onchange: e => { d.links[i + 1] = e.target.checked; } }), h('span', null, t))))),
         h('details', null, h('summary', null, 'Edit the draft'), writeArea({ value: d.draft, rows: 6, flash, oninput: v => { d.draft = v; } }),
@@ -296,9 +298,10 @@ const STEPS = {
   close(s) {
     const d = s.data;
     const prev = h('p', { class: 'yours' }, d.draft + ' ' + (d.close || ''));
-    return { el: h('div', { class: 'stack' }, p('Step 6: close. One sentence that returns to the point with what the paragraph has shown.', 'lead'), p(d.point, 'topic'),
-      h('input', { type: 'text', class: 'big', value: d.close || '', 'aria-label': 'Closing sentence', onpaste: e => e.preventDefault(), oninput: e => { d.close = e.target.value; prev.textContent = d.draft + ' ' + d.close; } }), prev),
-      ready: () => (d.close || '').trim() ? null : 'Write the closing sentence.' };
+    return { el: h('div', { class: 'stack' }, p('Step 6: close and check. Restate the point in new words ("In short\u2026"), then read the paragraph aloud and fix any place where you stumble.', 'lead'), p(d.point, 'topic'),
+      h('input', { type: 'text', class: 'big', value: d.close || '', 'aria-label': 'Closing sentence', onpaste: e => e.preventDefault(), oninput: e => { d.close = e.target.value; prev.textContent = d.draft + ' ' + d.close; } }), prev,
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!d.aloud, onchange: e => { d.aloud = e.target.checked; } }), ' I read it aloud and fixed where I stumbled')),
+      ready: () => !(d.close || '').trim() ? 'Write the closing sentence.' : !d.aloud ? 'Read it aloud, then tick the box.' : null };
   },
 
   study(s) {
@@ -335,11 +338,17 @@ function doneScreen() {
   }
   if (s.kind === 'franklin1') lines.push(p('Notes saved and the original put away. The rebuild comes up after at least one more day and one other drill.', 'note'));
   if (s.kind === 'franklin2' || s.kind === 'franklin3') lines.push(p(s.data.keptAll ? 'Your version kept every idea of the original.' : 'Some ideas were lost. That rebuild does not count toward the gate, but the comparison is the learning.', s.data.keptAll ? 'good' : 'note'));
-  const reviewable = s.kind !== 'franklin1' && s.kind !== 'piece' && L.mainText(s).trim();
+  const special = ['placement', 'gatetest'].includes(s.kind) || L.hasImitation(s);
+  if (s.kind === 'placement' || s.kind === 'gatetest') {
+    lines.push(s.data.result ? testResult(s) : testMarkTask(s.id));
+    if (s.kind === 'placement' && s.data.result) lines.push(drillMarkTask(s.id));
+  } else if (L.hasImitation(s)) lines.push(p(plural(L.imitationSentences(s).length, 'imitation') + ' written.', 'lead'), drillMarkTask(s.id));
+  if (s.kind === 'grammar') lines.push(p('Logged: ' + (s.data.unit || '') + '. Tick the area done in Today when you have finished its units.', 'muted small'));
+  const reviewable = !special && s.kind !== 'franklin1' && s.kind !== 'piece' && L.mainText(s).trim();
   return h('div', { class: 'focus-inner done' },
     h('header', { class: 'focus-head' }, h('div', { class: 'fh-left' }, h('span', { class: 'eyebrow' }, KIND_LABEL[s.kind]), h('h2', null, 'Session done'))),
     h('main', { class: 'focus-body' }, h('div', { class: 'stack' }, lines, reviewable ? reviewBox('sessions', s.id) : '')),
     h('footer', { class: 'focus-foot' },
-      reviewable || s.kind === 'piece' ? h('button', { class: 'btn', onclick: () => { App.sel = s.kind === 'piece' ? { coll: 'pieces', id: s.data.pieceId } : { coll: 'sessions', id: s.id }; Engine.close(); go('writing'); } }, 'Open in Writing') : '',
+      reviewable || special || s.kind === 'piece' ? h('button', { class: 'btn', onclick: () => { App.sel = s.kind === 'piece' ? { coll: 'pieces', id: s.data.pieceId } : { coll: 'sessions', id: s.id }; Engine.close(); go('writing'); } }, 'Open in Writing') : '',
       h('button', { class: 'btn primary', onclick: () => { Engine.close(); go('today'); } }, 'Back to Today')));
 }

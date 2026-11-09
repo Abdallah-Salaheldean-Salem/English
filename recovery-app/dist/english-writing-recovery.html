@@ -308,6 +308,17 @@ body.in-focus { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
+/* Phase 0 and the imitation drill */
+.testlist, .testres, .pats { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 12px; }
+.testlist .src, .pats .src { font: 15px/1.5 var(--f-write); color: var(--ink2); margin-bottom: 4px; }
+.testlist input { width: 100%; font: 17px var(--f-write); background: var(--sheet); }
+.testres li { list-style: none; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; margin-left: -22px; font: 15px/1.5 var(--f-write); }
+.testres .mark { font: 600 15px var(--f-ui); } .testres li.ok .mark { color: var(--green); } .testres li.no .mark { color: var(--red); }
+.imit { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r); }
+.imit input { width: 100%; font: 16px var(--f-write); }
+.imit ul { margin: 0; padding-left: 18px; font-family: var(--f-write); }
+.areas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+
 </style>
 <div id="shell">
   <aside class="rail">
@@ -328,7 +339,8 @@ const ERROR_TYPES = [
   'Missing article', 'Article with a plural', 'Wrong article', 'Missing "to" before a verb',
   'Noun used as an adjective', 'Spelling', 'Subject-verb agreement', 'Verb tense',
   'Verb form', 'Preposition', 'Word order', 'Singular or plural noun', 'Word choice',
-  'Run-on or comma splice', 'Sentence fragment', 'Punctuation', 'Capitalization', 'Other'
+  'Run-on or comma splice', 'Sentence fragment', 'Punctuation', 'Capitalization', "its vs it's",
+  'Conditional form', 'Hyphen before a noun', 'Space before punctuation', 'Other'
 ];
 
 /* The first error-log rows come from the plan itself (by: 'plan'). */
@@ -337,25 +349,67 @@ const PLAN_ERRORS = [
   { type: 'Article with a plural', wrote: 'give me a examples', correct: 'give me examples' },
   { type: 'Missing "to" before a verb', wrote: 'how produce them', correct: 'how to produce them' },
   { type: 'Noun used as an adjective', wrote: 'a health mindset', correct: 'a healthy mindset' },
-  { type: 'Spelling', wrote: 'project mangment', correct: 'project management' }
+  { type: 'Spelling', wrote: 'project mangment', correct: 'project management' },
+  { type: 'Spelling', wrote: 'this app relay on', correct: 'this app relies on' },
+  { type: "its vs it's", wrote: 'its making me', correct: "it's making me" },
+  { type: 'Capitalization', wrote: 'i lost', correct: 'I lost' },
+  { type: 'Conditional form', wrote: 'if you take', correct: 'if you took' },
+  { type: 'Hyphen before a noun', wrote: 'well written articles', correct: 'well-written articles' },
+  { type: 'Space before punctuation', wrote: 'have that ?', correct: 'have that?' }
 ];
 
+/* Phase 0 placement test (roadmap section 4). Part A: correct each sentence; Part B: 5 sentences about yesterday. */
+const PLACEMENT = [
+  'She work in a lab every day.',
+  'Yesterday I go to the hub and fix the printer.',
+  'I have finish my report last week.',
+  'He is engineer at a university.',
+  'We need more informations about the project.',
+  'The machine is very use for students.',
+  'Its important to test the board before you ship it.',
+  'I was tired, I went home early.',
+  'The students which come to the lab learns fast.',
+  'i dont know why the code fail.'
+];
+/* The six study areas and the Part A items that test each one. */
+const AREAS = [
+  { id: 'core', name: 'Sentence core', covers: 'A subject and a verb in every sentence; joining two sentences correctly', items: [8] },
+  { id: 'verbs', name: 'Verb forms', covers: '-s after he, she, it; past simple ("I wrote") vs present perfect ("I have written")', items: [1, 2, 3, 9, 10] },
+  { id: 'articles', name: 'Articles and nouns', covers: 'a, an, the; plurals; words with no plural, such as information', items: [4, 5] },
+  { id: 'forms', name: 'Word forms', covers: 'Noun, adjective, adverb: use vs useful, health vs healthy', items: [6] },
+  { id: 'joining', name: 'Joining words', covers: 'and, but, so, because, who, which', items: [8, 9] },
+  { id: 'punct', name: 'Punctuation', covers: "Capitals, its vs it's, short forms like don't", items: [7, 10] }
+];
+const IMITATION_EXAMPLE = {
+  model: 'Most engineers learn to write the way they learn to debug: slowly, by repeating the same mistake until it hurts.',
+  pattern: '[Group] + [verb] + the way they + [verb]: [how], by + [-ing verb] + until + [clause].',
+  grammar: 'learn to + base verb; by + -ing for the method; until + subject + verb.',
+  imitation: 'Most students learn to cook the way they learn to drive: \u2026'
+};
+
 const PHASES = {
-  1: { name: 'Restart', span: 'Weeks 1-4', goal: 'Write plain, correct sentences again without freezing. Volume and speed matter, quality does not yet.',
+  0: { name: 'Foundations', span: 'Weeks 1-6', goal: 'Rebuild sentence grammar before you write freely.',
+       rules: ['Take the placement test once, without AI, a checker or a dictionary. Guess and mark unsure answers with "?".',
+               'Study only the areas the test flags, one Murphy unit a day: rule, exercises, answer key.',
+               'Then write 5 sentences of your own that use that unit\u2019s grammar.',
+               'Twice a week, do the sentence imitation drill instead of the 5 sentences.'] },
+  1: { name: 'Restart', span: 'Weeks 7-10', goal: 'Write plain, correct sentences again without freezing. Speed and volume matter more than quality.',
        rules: ['One idea per sentence.', 'Subject and verb within the first five words.', '10-20 words per sentence.',
-               'When stuck, write the simplest true sentence ("The board did not boot.") and build from it.'] },
-  2: { name: 'Control', span: 'Weeks 5-12', goal: 'Control paragraphs on purpose, not by luck. One drill a weekday, one piece at the weekend.',
+               'When stuck, write the simplest true sentence ("The board did not boot.") and build from it.',
+               'Twice a week, an article session replaces the timed writing.'] },
+  2: { name: 'Control', span: 'Weeks 11-18', goal: 'Control paragraphs on purpose, not by luck. One drill a weekday, one piece at the weekend.',
        rules: ['The point is in the first sentence of each paragraph.', 'Each sentence picks up something from the one before it.',
-               'No sentence runs past 25 words.'] },
-  3: { name: 'Finished pieces', span: 'Months 4-6', goal: 'Finish whole pieces that a stranger would read to the end. One form for three months.',
+               'No sentence runs past 25 words.', 'Once a week, an article session replaces one weekday drill.'] },
+  3: { name: 'Whole pieces', span: 'Months 5-7', goal: 'Finish whole pieces that a stranger would read to the end. One form for three months.',
        rules: ['Week A: plan and draft the piece.', 'Week B: revise, post for critique, revise again.',
                'Keep 2 weekday drills: a Franklin rebuild and sentence combining.'] },
-  4: { name: 'Spare-time writer', span: 'Month 7 on', goal: 'Publish once a month in one public place.',
+  4: { name: 'Publish', span: 'Month 8 on', goal: 'Publish one piece a month in one public place. No gate; this phase continues.',
        rules: ['Weeks 1-2: draft the piece.', 'Week 3: get critique and revise.', 'Week 4: final read-aloud pass, then publish.',
                'Every week: one Franklin rebuild on a writer you admire.'] }
 };
 
 const GATE_TEXT = {
+  0: ['Every area the placement test flagged is done', '9 or more right on a new 10-sentence test from Claude', '20 sentence imitations written and marked'],
   1: ['15 sessions done', '150 words written in 15 minutes without stopping', 'Your most frequent errors identified (4 types seen at least twice)'],
   2: ['6 Franklin rebuilds that keep every idea of the original', '8 weekend pieces finished and revised', 'Top 3 errors from Phase 1 at most once per 300 words'],
   3: ['3 finished pieces of 800+ words', 'Each revised after feedback from at least 2 readers', '5 critiques written for other writers']
@@ -378,6 +432,7 @@ const REVISION_CHECKS = [
 ];
 
 const BOOKS = [
+  { id: 'murphy', phase: 0, author: 'Raymond Murphy', title: 'English Grammar in Use (intermediate)', why: 'Two-page grammar units with exercises and an answer key.' },
   { id: 'klinkenborg', phase: 1, author: 'Verlyn Klinkenborg', title: 'Several Short Sentences About Writing', why: 'Teaches writing one sentence at a time, which is exactly where you are starting.' },
   { id: 'williams', phase: 2, author: 'Joseph M. Williams and Joseph Bizup', title: 'Style: Lessons in Clarity and Grace', why: 'The clearest guide to why some sentences are easy to read and others are not.' },
   { id: 'zinsser', phase: 3, form: 'essay', author: 'William Zinsser', title: 'On Writing Well', why: 'The standard guide to clear nonfiction.' },
@@ -436,10 +491,27 @@ const SITES = [
 const KIND_LABEL = {
   phase1: 'Daily session', short: 'Short session', franklin1: 'Franklin rebuild, part 1', franklin2: 'Franklin rebuild, part 2',
   franklin3: 'Franklin rebuild (one sitting)', combining: 'Sentence combining', summary: '100-word summary',
-  paragraph: 'Six-step paragraph', piece: 'Piece session', drill: 'Error drill'
+  paragraph: 'Six-step paragraph', piece: 'Piece session', drill: 'Error drill',
+  placement: 'Placement test', gatetest: 'Phase 0 gate test', grammar: 'Grammar session', imitation: 'Article session'
 };
 
-if (typeof module !== 'undefined') module.exports = { ERROR_TYPES, PLAN_ERRORS, PHASES, GATE_TEXT, RULES_TABLE, REVISION_CHECKS, BOOKS, FORMS, TOPICS, COMBINING, SITES, KIND_LABEL };
+const CONFIDENCE = [
+  ['Daily, spaced practice with feedback', 'High', 'Kellogg (2008), research on writing expertise'],
+  ['Planning, revising, summarizing and sentence combining', 'High', 'Writing Next review (Graham and Perin, 2007)'],
+  ['Reading improves writing', 'High', 'Graham et al. (2018) meta-analysis'],
+  ["Franklin's rebuild method", 'Medium', "Franklin's own account; a strong historical example, not a controlled study"],
+  ['AI drafting weakens unaided writing', 'Low to medium', 'One small, short study (54 students)'],
+  ['"Fluency returns in 2-3 weeks" and the phase timings', 'Low', "Claude's estimates, not research findings"]
+];
+const TROUBLE = [
+  ['You missed a few days', "Carry on from where you stopped. Don't try to catch up."],
+  ['You missed two weeks', "Restart at the beginning of your current phase's daily session, not at Phase 0."],
+  ['A gate feels impossible', 'Send Claude your last three pieces. The problem is usually one error type, and that becomes a drill.'],
+  ['You want to use AI to "just fix it"', 'Write the sentence badly first, then ask Claude what is wrong, not for a corrected version.'],
+  ['A phase takes much longer than its timing', 'That is fine. The gates decide when you move on, not the calendar.']
+];
+
+if (typeof module !== 'undefined') module.exports = { ERROR_TYPES, PLAN_ERRORS, PLACEMENT, AREAS, IMITATION_EXAMPLE, CONFIDENCE, TROUBLE, PHASES, GATE_TEXT, RULES_TABLE, REVISION_CHECKS, BOOKS, FORMS, TOPICS, COMBINING, SITES, KIND_LABEL };
 
 /* ==== src/models.json ==== */
 const MODELS = [{"id": "franklin-spectator", "author": "Benjamin Franklin", "title": "Autobiography: the Spectator", "year": "1791", "form": "essay", "source": "https://www.gutenberg.org/ebooks/20203", "text": "About this time I met with an odd volume of the Spectator. It was the third. I had never before seen any of them. I bought it, read it over and over, and was much delighted with it. I thought the writing excellent, and wished, if possible, to imitate it. With this view I took some of the papers, and, making short hints of the sentiment in each sentence, laid them by a few days, and then, without looking at the book, try'd to compleat the papers again, by expressing each hinted sentiment at length, and as fully as it had been expressed before, in any suitable words that should come to hand. Then I compared my Spectator with the original, discovered some of my faults, and corrected them.", "words": 129}, {"id": "franklin-method", "author": "Benjamin Franklin", "title": "Autobiography: method in the arrangement of thoughts", "year": "1791", "form": "essay", "source": "https://www.gutenberg.org/ebooks/20203", "text": "Therefore I took some of the tales and turned them into verse; and, after a time, when I had pretty well forgotten the prose, turned them back again. I also sometimes jumbled my collections of hints into confusion, and after some weeks endeavored to reduce them into the best order, before I began to form the full sentences and compleat the paper. This was to teach me method in the arrangement of thoughts. By comparing my work afterwards with the original, I discovered many faults and amended them; but I sometimes had the pleasure of fancying that, in certain particulars of small import, I had been lucky enough to improve the method or the language, and this encouraged me to think I might possibly in time come to be a tolerable English writer, of which I was extremely ambitious.", "words": 139}, {"id": "thoreau-woods", "author": "Henry David Thoreau", "title": "Walden: Where I Lived, and What I Lived For", "year": "1854", "form": "essay", "source": "https://www.gutenberg.org/ebooks/205", "text": "I went to the woods because I wished to live deliberately, to front only the essential facts of life, and see if I could not learn what it had to teach, and not, when I came to die, discover that I had not lived. I did not wish to live what was not life, living is so dear; nor did I wish to practise resignation, unless it was quite necessary. I wanted to live deep and suck out all the marrow of life, to live so sturdily and Spartan-like as to put to rout all that was not life, to cut a broad swath and shave close, to drive life into a corner, and reduce it to its lowest terms.", "words": 120}, {"id": "darwin-bank", "author": "Charles Darwin", "title": "On the Origin of Species: the entangled bank", "year": "1859", "form": "essay", "source": "https://www.gutenberg.org/ebooks/1228", "text": "It is interesting to contemplate an entangled bank, clothed with many plants of many kinds, with birds singing on the bushes, with various insects flitting about, and with worms crawling through the damp earth, and to reflect that these elaborately constructed forms, so different from each other, and dependent on each other in so complex a manner, have all been produced by laws acting around us. These laws, taken in the highest sense, being Growth with Reproduction; Inheritance which is almost implied by reproduction; Variability from the indirect and direct action of the external conditions of life, and from use and disuse; a Ratio of Increase so high as to lead to a Struggle for Life, and as a consequence to Natural Selection, entailing Divergence of Character and the Extinction of less-improved forms.", "words": 133}, {"id": "lincoln-gettysburg", "author": "Abraham Lincoln", "title": "The Gettysburg Address (Bliss copy)", "year": "1863", "form": "essay", "source": "https://www.gutenberg.org/ebooks/4", "text": "Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract.", "words": 139}, {"id": "ohenry-magi", "author": "O. Henry", "title": "The Gift of the Magi (opening)", "year": "1905", "form": "story", "source": "https://www.gutenberg.org/ebooks/7256", "text": "One dollar and eighty-seven cents. That was all. And sixty cents of it was in pennies. Pennies saved one and two at a time by bulldozing the grocer and the vegetable man and the butcher until one's cheeks burned with the silent imputation of parsimony that such close dealing implied. Three times Della counted it. One dollar and eighty-seven cents. And the next day would be Christmas. There was clearly nothing to do but flop down on the shabby little couch and howl. So Della did it. Which instigates the moral reflection that life is made up of sobs, sniffles, and smiles, with sniffles predominating.", "words": 105}, {"id": "chopin-hour", "author": "Kate Chopin", "title": "The Story of an Hour (opening)", "year": "1894", "form": "story", "source": "https://www.gutenberg.org/ebooks/160", "text": "Knowing that Mrs. Mallard was afflicted with a heart trouble, great care was taken to break to her as gently as possible the news of her husband's death. It was her sister Josephine who told her, in broken sentences; veiled hints that revealed in half concealing. Her husband's friend Richards was there, too, near her. It was he who had been in the newspaper office when intelligence of the railroad disaster was received, with Brently Mallard's name leading the list of \"killed.\" He had only taken the time to assure himself of its truth by a second telegram, and had hastened to forestall any less careful, less tender friend in bearing the sad message.", "words": 114}, {"id": "london-fire", "author": "Jack London", "title": "To Build a Fire (opening)", "year": "1908", "form": "story", "source": "https://www.gutenberg.org/ebooks/search/?query=jack+london+lost+face", "text": "Day had broken cold and grey, exceedingly cold and grey, when the man turned aside from the main Yukon trail and climbed the high earth-bank, where a dim and little-travelled trail led eastward through the fat spruce timberland. It was a steep bank, and he paused for breath at the top, excusing the act to himself by looking at his watch. It was nine o'clock. There was no sun nor hint of sun, though there was not a cloud in the sky. It was a clear day, and yet there seemed an intangible pall over the face of things, a subtle gloom that made the day dark, and that was due to the absence of sun.", "words": 116}];
@@ -498,18 +570,33 @@ const L = (() => {
     summary: [['source', 3], ['write', 17], ['check', 5]],
     paragraph: [['point', 3], ['notes', 5], ['order', 2], ['draft', 10], ['link', 3], ['close', 2]],
     piece: [['work', 25]],
-    drill: [['study', 5], ['practice', 15], ['check', 5]]
+    drill: [['study', 5], ['practice', 15], ['check', 5]],
+    placement: [['test', 10]],
+    gatetest: [['gtest', 15]],
+    grammar: [['unit', 15], ['use', 10]],
+    imitation: [['article', 3], ['patterns', 5], ['imitate', 17]]
+  };
+  /* On imitation days the drill takes the place of one step (roadmap section 5). */
+  const IMITATE_VARIANT = {
+    grammar: [['unit', 15], ['article', 2], ['patterns', 3], ['imitate', 10]],
+    phase1: [['copy', 5], ['article', 2], ['patterns', 3], ['imitate', 10], ['check', 5]]
   };
   function flowFor(kind, data) {
     data = data || {};
-    let f = (FLOWS[kind] || []).map(([id, min, sprint]) => ({ id, min, sprint: !!sprint }));
+    const src = data.imitate && IMITATE_VARIANT[kind] ? IMITATE_VARIANT[kind] : (FLOWS[kind] || []);
+    let f = src.map(([id, min, sprint]) => ({ id, min, sprint: !!sprint }));
     if (kind === 'franklin2' && !data.shuffled) f = f.filter(s => s.id !== 'order');
     if (kind === 'piece' && data.minutes) f = [{ id: 'work', min: data.minutes, sprint: false }];
     return f;
   }
   /* The text a session produced, for word counts and review. */
+  const imitationSentences = s => ((s.data && s.data.imitations) || []).flat().map(x => (x || '').trim()).filter(Boolean);
+  const hasImitation = s => s.kind === 'imitation' || !!(s.data && s.data.imitate);
   function mainText(s) {
     const d = s.data || {};
+    if (hasImitation(s)) return imitationSentences(s).join('\n');
+    if (s.kind === 'placement') return d.partB || '';
+    if (s.kind === 'gatetest') return '';
     if (s.kind === 'combining') return (d.ways || []).join('\n\n');
     if (s.kind === 'paragraph') return [d.draft || '', d.close || ''].filter(Boolean).join(' ');
     if (s.kind === 'franklin1') return '';
@@ -556,7 +643,7 @@ const L = (() => {
   const P3_SLOTS = ['piece', 'franklin3', 'piece', 'combining', 'piece'];
 
   function nextAction(app, sessions, pieces, models, today) {
-    const phase = app.phase || 1;
+    const phase = typeof app.phase === "number" ? app.phase : 1;
     const all = sessions.slice().sort(byTime);
     const active = all.filter(s => s.status === 'active').pop();
     if (active) return { kind: active.kind, resume: active.id, title: 'Finish your ' + active.kind + ' session', why: 'You started this and did not finish it.', minutes: 0 };
@@ -569,10 +656,23 @@ const L = (() => {
       const m = nextModel(models, phase >= 3 ? form : 'essay', all);
       return Object.assign({ modelId: m && m.id }, extra || {});
     };
+    /* Weekday sessions already done this week (before today), and imitation days among them. */
+    const weekDoneBefore = done.filter(s => s.phase === phase && inWeek(s.date, today, ws) && !isWeekend(s.date, app) && s.kind !== 'short' && s.kind !== 'drill' && s.date !== today);
+    const imitationsThisWeek = done.filter(s => s.phase === phase && inWeek(s.date, today, ws) && hasImitation(s)).length;
+    const twiceWeekly = () => (weekDoneBefore.length === 1 || weekDoneBefore.length >= 3) && imitationsThisWeek < 2;
     let a;
-    if (phase === 1) {
+    if (phase === 0) {
+      const placed = done.some(s => s.kind === 'placement' && s.data && s.data.result);
+      const taken = done.find(s => s.kind === 'placement');
+      if (!placed && !taken) a = { kind: 'placement', title: 'Placement test', why: '10 sentences to correct and 5 to write. No AI, no checker, no dictionary. Guess and mark unsure answers with "?".', minutes: 10 };
+      else if (!placed) a = { kind: null, title: 'Get your placement test marked', why: 'Open it in Writing and ask Claude to mark it. The result decides which grammar areas you study.', minutes: 0, openId: taken.id };
+      else if (weekend) a = { kind: null, title: 'Weekend', why: 'Phase 0 runs on 5 weekdays. Read for 15 minutes today.', minutes: 0 };
+      else if (twiceWeekly()) a = { kind: 'grammar', data: { imitate: true }, title: 'Grammar unit, then sentence imitation', why: 'One Murphy unit (15 minutes), then imitate 3 sentence patterns from an article.', minutes: 30 };
+      else a = { kind: 'grammar', title: 'Grammar unit, then use it', why: 'One Murphy unit (15 minutes), then 5 sentences of your own that use it (10 minutes).', minutes: 25 };
+    } else if (phase === 1) {
       a = weekend ? { kind: null, title: 'Weekend', why: 'Phase 1 runs on 5 weekdays. Read for 15 minutes today.', minutes: 0 }
-                  : { kind: 'phase1', title: 'Copy, write, check', why: 'Copy 5 minutes, write 15 without stopping, check 5.', minutes: 25 };
+        : twiceWeekly() ? { kind: 'phase1', data: { imitate: true }, title: 'Copy, imitate, check', why: 'Copy 5 minutes, an article session instead of the timed writing, then check.', minutes: 25 }
+        : { kind: 'phase1', title: 'Copy, write, check', why: 'Copy 5 minutes, write 15 without stopping, check 5.', minutes: 25 };
     } else if (phase === 2 && weekend) {
       const p = openPiece(pieces, 2, 2);
       const st = p ? p.status : 'plan';
@@ -582,7 +682,9 @@ const L = (() => {
       const p2 = done.filter(s => s.phase === 2 && (P2_CYCLE.includes(s.kind) || s.kind === 'franklin2'));
       const pend = pendingNotes(done);
       const last = p2[p2.length - 1];
-      if (pend && pend.date < today && last && last.kind !== 'franklin1') {
+      if (weekDoneBefore.length === 3 && imitationsThisWeek === 0) {
+        a = { kind: 'imitation', title: 'Article session', why: 'Once a week, sentence imitation replaces one drill: 3 patterns from an article, 3 imitations of each.', minutes: 25 };
+      } else if (pend && pend.date < today && last && last.kind !== 'franklin1') {
         a = { kind: 'franklin2', title: 'Rebuild from your notes', why: 'Rebuild the paragraph from the notes you took on ' + pend.date + ', then compare.', minutes: 25,
               data: { notesId: pend.id, modelId: pend.data.modelId, shuffled: !!pend.data.shuffled } };
       } else {
@@ -602,7 +704,7 @@ const L = (() => {
       if (weekend) {
         a = { kind: null, title: 'Weekend', why: 'Read for 15 minutes. Pieces and drills run on weekdays.', minutes: 0 };
       } else {
-        const weekDone = done.filter(s => s.phase === phase && inWeek(s.date, today, ws) && !isWeekend(s.date, app) && s.kind !== 'short' && s.kind !== 'drill' && s.date !== today);
+        const weekDone = weekDoneBefore;
         const slot = weekDone.length;
         let pick = phase === 3 ? (P3_SLOTS[slot] || 'piece')
                                : (slot >= 1 && !weekDone.some(s => s.kind === 'franklin3') ? 'franklin3' : 'piece');
@@ -708,8 +810,24 @@ const L = (() => {
     const perType = top3.map(t => ({ type: t, count: counts[t], per300: words ? counts[t] / words * 300 : 0 }));
     return { words, perType, met: words >= 900 && top3.length > 0 && perType.every(x => x.per300 <= 1) };
   }
+  /* Areas to study: every area with a wrong Part A item. */
+  function flaggedAreas(items, areas) {
+    const wrong = new Set((items || []).filter(i => !i.ok).map(i => i.n));
+    return areas.filter(a => a.items.some(n => wrong.has(n))).map(a => a.id);
+  }
   function evaluateGates(app, sessions, pieces, errors, critiques) {
     const done = sessions.filter(s => s.status === 'done');
+    const p0 = app.p0 || {};
+    const flagged = p0.flagged;
+    const areasDone = flagged ? flagged.filter(id => p0.areas && p0.areas[id] && p0.areas[id].done).length : 0;
+    const bestTest = done.filter(s => s.kind === 'gatetest' && s.data && typeof s.data.score === 'number').reduce((m, s) => Math.max(m, s.data.score), 0);
+    const marked = done.filter(s => hasImitation(s) && s.reviewedAt).reduce((t, s) => t + imitationSentences(s).length, 0);
+    const g0 = [
+      flagged ? { label: 'Every area the placement test flagged is done', have: areasDone, need: flagged.length, met: areasDone === flagged.length }
+              : { label: 'Placement test taken and marked', have: 0, need: 1 },
+      { label: '9 or more right on a new 10-sentence test', have: bestTest, need: 9 },
+      { label: '20 sentence imitations written and marked', have: marked, need: 20 }
+    ];
     const n1 = done.filter(s => s.kind === 'phase1').length;
     let best = 0;
     for (const s of done) { const sp = s.data && s.data.sprint; if (sprintClean(sp, app.pauseLimit) && sp.seconds <= 905) best = Math.max(best, sp.words || 0); }
@@ -734,12 +852,12 @@ const L = (() => {
       { label: '5 critiques written for other writers', have: critiques.length, need: 5 }
     ];
     const fin = items => { for (const i of items) if (i.met === undefined) i.met = i.have >= i.need; return { items, met: items.every(i => i.met) }; };
-    return { 1: fin(g1), 2: fin(g2), 3: fin(g3) };
+    return { 0: fin(g0), 1: fin(g1), 2: fin(g2), 3: fin(g3) };
   }
 
   /* ---------- reviews ---------- */
   function reviewsThisWeek(app, sessions, pieces, today) {
-    return sessions.concat(pieces).filter(x => x.reviewedAt && inWeek(x.reviewedAt.slice(0, 10), today, app.weekStart || 0)).length;
+    return sessions.concat(pieces).filter(x => x.reviewedAt && x.reviewMode !== 'drill' && inWeek(x.reviewedAt.slice(0, 10), today, app.weekStart || 0)).length;
   }
   function reviewPrompt(text, top3, types) {
     return 'You are marking a draft written by an adult who is rebuilding their English writing without AI help.\n' +
@@ -787,6 +905,70 @@ const L = (() => {
     try { return validateMarks(JSON.parse(s.slice(a, b + 1)), text, types); } catch (e) { return null; }
   }
 
+  /* ---------- Phase 0 tests and the imitation drill: prompts and reply checks ---------- */
+  const NO_FIX = 'Never write the corrected sentence or any replacement words anywhere in your reply.';
+  function testMarkPrompt(sentences, answers, types) {
+    return 'You are marking a grammar test for an adult rebuilding their English. Each original sentence below has one or more errors; the learner rewrote it to correct it.\n' +
+      'For each item decide whether the learner\'s version is fully correct, natural English that keeps the meaning. A "?" in the answer means the learner was unsure; ignore the "?" itself.\n' +
+      NO_FIX + ' If an item is wrong, name the error type (one of: ' + types.join('; ') + ') and give one short hint question that points at the problem without giving the fix.\n' +
+      'Reply with only a JSON array of ' + sentences.length + ' objects in order: [{"n":1,"ok":true,"type":"","hint":""}, ...].\n\n' +
+      sentences.map((t, i) => (i + 1) + '. Original: ' + t + '\n   Learner: ' + (answers[i] || '(blank)')).join('\n');
+  }
+  function validateTestMarks(raw, count, types) {
+    if (!Array.isArray(raw)) return null;
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const r = raw.find(x => x && Number(x.n) === i + 1) || raw[i];
+      if (!r || typeof r.ok !== 'boolean') return null;
+      out.push({ n: i + 1, ok: r.ok, type: r.ok ? '' : (types.includes(r.type) ? r.type : 'Other'), hint: r.ok ? '' : clip(r.hint, 300) });
+    }
+    return out;
+  }
+  function newTestPrompt(areaNames) {
+    return 'Write a new 10-sentence grammar test for an adult engineer rebuilding their English. Each sentence must contain one or two errors for the learner to correct, ' +
+      'like "She work in a lab every day." or "We need more informations about the project." Use everyday topics from work, a university lab, electronics and daily life. ' +
+      'Cover these areas, at least once each and more often for the first ones: ' + areaNames.join('; ') + '.\n' +
+      'Do not include the corrected versions. Reply with only a JSON array of 10 objects: [{"sentence":"...","area":"<one of the area names>"}].';
+  }
+  function validateNewTest(raw, areaNames) {
+    if (!Array.isArray(raw)) return null;
+    const out = raw.filter(x => x && typeof x.sentence === 'string' && x.sentence.trim().length > 8).slice(0, 10)
+      .map(x => ({ sentence: x.sentence.trim().slice(0, 200), area: areaNames.includes(x.area) ? x.area : '' }));
+    return out.length === 10 ? out : null;
+  }
+  function breakdownPrompt(article) {
+    return 'Below are 2-3 paragraphs from an article a learner wants to learn to write like. Break down ONE paragraph for a sentence imitation drill.\n' +
+      'Give: "structure", one or two sentences on how the paragraph is built; then exactly 3 "patterns". For each pattern: "model", one sentence copied exactly, character for character, from the text; ' +
+      '"pattern", its structure as a fill-in formula like "[Group] + [verb] + the way they + [verb]: [how], by + [-ing verb] + until + [clause]"; "grammar", the grammar inside it in one line.\n' +
+      'Reply with only JSON: {"structure":"...","patterns":[{"model":"...","pattern":"...","grammar":"..."}, ...]}.\n\nText:\n"""\n' + article + '\n"""';
+  }
+  function validateBreakdown(raw, article) {
+    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.patterns)) return null;
+    const flat = article.replace(/\s+/g, ' ');
+    const pats = raw.patterns.filter(x => x && typeof x.pattern === 'string' && x.pattern.trim() && typeof x.model === 'string' && flat.includes(x.model.replace(/\s+/g, ' ').trim()))
+      .slice(0, 3).map(x => ({ model: x.model.replace(/\s+/g, ' ').trim(), pattern: clip(x.pattern, 300), grammar: clip(x.grammar, 300) }));
+    return pats.length === 3 ? { structure: clip(raw.structure, 400), patterns: pats } : null;
+  }
+  function patternCheckPrompt(patterns) {
+    return 'A learner found sentence patterns in an article for an imitation drill. For each, check that the formula describes the model sentence\'s structure and that the grammar note is right. ' +
+      'Do not rewrite their formula; if something is off, say what to look at again in one short sentence.\n' +
+      'Reply with only a JSON array of ' + patterns.length + ' objects: [{"ok":true,"note":""}, ...].\n\n' +
+      patterns.map((x, i) => (i + 1) + '. Model: ' + x.model + '\n   Formula: ' + x.pattern + '\n   Grammar: ' + x.grammar).join('\n');
+  }
+  function validatePatternCheck(raw, n) {
+    if (!Array.isArray(raw) || raw.length < n) return null;
+    return raw.slice(0, n).map(x => ({ ok: !!(x && x.ok === true), note: clip(x && x.note, 300) }));
+  }
+  /* Pull the JSON value out of a pasted reply. */
+  function parsePastedJson(t) {
+    t = t || '';
+    const tries = [t, (t.match(/```(?:json)?\s*([\s\S]*?)```/) || [])[1]];
+    const a = t.search(/[[{]/), b = Math.max(t.lastIndexOf(']'), t.lastIndexOf('}'));
+    if (a >= 0 && b > a) tries.push(t.slice(a, b + 1));
+    for (const x of tries) { if (!x) continue; try { return JSON.parse(x); } catch (e) { /* next */ } }
+    return undefined;
+  }
+
   /* ---------- weekly tracker ---------- */
   function weekRows(app, sessions, errors, today) {
     const ws = app.weekStart || 0, start = app.startDate || today;
@@ -811,7 +993,9 @@ const L = (() => {
   return { iso, addDays, dow, daysBetween, weekStartOf, weekIndex, isWeekend, inWeek, countWords, splitSentences, sentenceReport, sentenceAround,
     FLOWS, flowFor, mainText, sprintClean, sprintPasses, nextModel, shuffleOrder, pendingNotes, nextAction, stagesFor, pieceTarget, readers,
     stageBlockers, advancePiece, norm, errorId, logError, errorTypeCounts, computeTop3, drillTargets, top3Rate, evaluateGates,
-    reviewsThisWeek, reviewPrompt, validateMarks, repairPrompt, validateRepair, parsePastedMarks, weekRows, daysSinceLast };
+    reviewsThisWeek, reviewPrompt, validateMarks, repairPrompt, validateRepair, parsePastedMarks, weekRows, daysSinceLast,
+    imitationSentences, hasImitation, flaggedAreas, testMarkPrompt, validateTestMarks, newTestPrompt, validateNewTest, breakdownPrompt, validateBreakdown,
+    patternCheckPrompt, validatePatternCheck, parsePastedJson };
 })();
 
 if (typeof module !== 'undefined') module.exports = L;
@@ -1140,7 +1324,7 @@ const setById = id => COMBINING.find(c => c.id === id) || COMBINING[0];
 const checkIds = REVISION_CHECKS.map(c => c[0]);
 
 function defaultApp(today) {
-  return { startDate: today, phase: 1, phaseStarted: { 1: today }, weekStart: 0, restDays: [5, 6], anchorRoutine: '', anchorPlace: '',
+  return { startDate: today, phase: 0, phaseStarted: { 0: today }, p0Offered: true, planRows2: true, weekStart: 0, restDays: [5, 6], anchorRoutine: '', anchorPlace: '',
     noDelete: true, pauseLimit: 60, reviewsPerWeek: 1, sound: true, form: 'essay', publishPlace: '', top3: [], books: {} };
 }
 function saveApp(patch) { Store.put('state', 'app', Object.assign(clone(app()), patch)); }
@@ -1177,6 +1361,8 @@ const Engine = {
     if (kind === 'phase1' || kind === 'short') data.topic = data.topic || TOPICS[(sessions().length * 7) % TOPICS.length];
     if (kind === 'phase1' && !data.modelId) data.modelId = L.nextModel(allModels(), 'essay', sessions()).id;
     if ((kind === 'franklin1' || kind === 'franklin3') && !data.modelId) data.modelId = L.nextModel(allModels(), a.phase >= 3 ? a.form : 'essay', sessions()).id;
+    if (L.hasImitation({ kind, data })) data.imitations = data.imitations || blankImitations();
+    if (kind === 'placement') { data.answers = PLACEMENT.slice(); data.partB = ''; }
     if (kind === 'combining' && !data.setId) {
       const used = new Set(sessions().filter(s => s.kind === 'combining').map(s => s.data && s.data.setId));
       data.setId = (COMBINING.find(c => !used.has(c.id)) || COMBINING[sessions().length % COMBINING.length]).id;
@@ -1356,7 +1542,8 @@ async function claudeRepair(coll, id, idx, fix) {
 'use strict';
 
 const STEP_NAME = { copy: 'Copy', write: 'Write', check: 'Check', read: 'Read', notes: 'Notes', order: 'Order', rebuild: 'Rebuild', compare: 'Compare',
-  combine: 'Combine', source: 'Article', point: 'Point', draft: 'Draft', link: 'Link', close: 'Close', study: 'Study', practice: 'Practice', work: 'Work' };
+  combine: 'Combine', source: 'Article', point: 'Point', draft: 'Draft', link: 'Link', close: 'Close', study: 'Study', practice: 'Practice', work: 'Work',
+  test: 'Test', gtest: 'Test', unit: 'Grammar unit', use: 'Use it', article: 'Article', patterns: 'Patterns', imitate: 'Imitate' };
 
 /* A writing surface. Paste is always off. In a sprint step with "no deleting" on, deletion is off too. */
 function writeArea(o) {
@@ -1610,25 +1797,26 @@ const STEPS = {
 
   point(s) {
     const d = s.data;
-    return { el: h('div', { class: 'stack' }, p('Step 1 of 6: the point. Write the one sentence this paragraph must prove.', 'lead'),
+    return { el: h('div', { class: 'stack' }, p('Step 1 of 6: the point. The one thing the reader should know or believe, as one sentence.', 'lead'),
+      p('Add value, not just clarity: state a problem the reader cares about, not a description. "The Hub has four pillars" describes. "Students have ideas but nowhere to build them" states a problem.', 'muted small'),
       h('input', { type: 'text', class: 'big', value: d.point || '', 'aria-label': 'The point', oninput: e => { d.point = e.target.value; } })),
       ready: () => (d.point || '').trim() ? null : 'Write the point.' };
   },
   'paragraph:notes'(s) {
     const d = s.data;
-    return { el: h('div', { class: 'stack' }, p('Step 2: notes. 3-6 short notes that support the point, one per line.', 'lead'), p(d.point, 'topic'),
+    return { el: h('div', { class: 'stack' }, p('Step 2: notes. 3-4 supporting ideas as short notes of 2-4 words each, one per line.', 'lead'), p(d.point, 'topic'),
       h('textarea', { class: 'sheet small', rows: 6, value: (d.notes || []).join('\n'), oninput: e => { d.notes = e.target.value.split('\n').map(x => x.trim()).filter(Boolean); } })),
-      ready: () => { const n = (d.notes || []).length; return n >= 3 && n <= 6 ? null : 'Write 3-6 notes, one per line.'; } };
+      ready: () => { const n = (d.notes || []).length; return n >= 3 && n <= 4 ? null : 'Write 3-4 notes, one per line.'; } };
   },
   'paragraph:order'(s) {
     const d = s.data, order = d.notes.map((_, i) => i);
-    return { el: h('div', { class: 'stack' }, p('Step 3: order. Arrange the notes so each one leads into the next.', 'lead'),
+    return { el: h('div', { class: 'stack' }, p('Step 3: order. By time for a process, by importance for an argument, by logic for a definition.', 'lead'),
       moveList(d.notes, order, o => { d.order = o.slice(); })),
       ready: () => null, commit: () => { if (d.order) d.notes = d.order.map(i => d.notes[i]); delete d.order; } };
   },
   draft(s, flash) {
     const d = s.data, c = counter('dw', L.countWords(d.draft) + ' words');
-    return { el: h('div', { class: 'stack' }, p('Step 4: draft. Open with the point, then follow your notes in order.', 'lead'),
+    return { el: h('div', { class: 'stack' }, p('Step 4: draft. Open with the point, then turn each note into one sentence with the subject and verb near the start.', 'lead'),
       h('div', { class: 'plan' }, h('p', { class: 'topic' }, d.point), h('ol', { class: 'notelist' }, d.notes.map(n => h('li', null, n)))),
       writeArea({ id: 'draft', value: d.draft || '', rows: 8, flash, oninput: v => { d.draft = v; c.textContent = L.countWords(v) + ' words'; } }), h('div', { class: 'meta' }, c)),
       ready: () => L.countWords(d.draft) >= 40 ? null : 'Draft the paragraph first (40+ words).' };
@@ -1638,7 +1826,7 @@ const STEPS = {
     const box = h('div', { class: 'stack' });
     const draw = () => {
       const sents = L.splitSentences(d.draft); d.links = sents.map((_, i) => (d.links || [])[i] || false);
-      box.replaceChildren(p('Step 5: link. Each sentence should pick up something from the one before it. Tick each pair that links; fix the ones that do not.', 'lead'),
+      box.replaceChildren(p('Step 5: link. Begin each sentence with a word or idea from the one before, or a connector (because, so, but, next, finally). Tick each pair that links; fix the ones that do not.', 'lead'),
         h('ol', { class: 'pairs' }, sents.slice(1).map((t, i) => h('li', null, h('p', { class: 'prev' }, sents[i]), h('label', { class: 'check' },
           h('input', { type: 'checkbox', checked: d.links[i + 1], onchange: e => { d.links[i + 1] = e.target.checked; } }), h('span', null, t))))),
         h('details', null, h('summary', null, 'Edit the draft'), writeArea({ value: d.draft, rows: 6, flash, oninput: v => { d.draft = v; } }),
@@ -1650,9 +1838,10 @@ const STEPS = {
   close(s) {
     const d = s.data;
     const prev = h('p', { class: 'yours' }, d.draft + ' ' + (d.close || ''));
-    return { el: h('div', { class: 'stack' }, p('Step 6: close. One sentence that returns to the point with what the paragraph has shown.', 'lead'), p(d.point, 'topic'),
-      h('input', { type: 'text', class: 'big', value: d.close || '', 'aria-label': 'Closing sentence', onpaste: e => e.preventDefault(), oninput: e => { d.close = e.target.value; prev.textContent = d.draft + ' ' + d.close; } }), prev),
-      ready: () => (d.close || '').trim() ? null : 'Write the closing sentence.' };
+    return { el: h('div', { class: 'stack' }, p('Step 6: close and check. Restate the point in new words ("In short\u2026"), then read the paragraph aloud and fix any place where you stumble.', 'lead'), p(d.point, 'topic'),
+      h('input', { type: 'text', class: 'big', value: d.close || '', 'aria-label': 'Closing sentence', onpaste: e => e.preventDefault(), oninput: e => { d.close = e.target.value; prev.textContent = d.draft + ' ' + d.close; } }), prev,
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!d.aloud, onchange: e => { d.aloud = e.target.checked; } }), ' I read it aloud and fixed where I stumbled')),
+      ready: () => !(d.close || '').trim() ? 'Write the closing sentence.' : !d.aloud ? 'Read it aloud, then tick the box.' : null };
   },
 
   study(s) {
@@ -1689,13 +1878,252 @@ function doneScreen() {
   }
   if (s.kind === 'franklin1') lines.push(p('Notes saved and the original put away. The rebuild comes up after at least one more day and one other drill.', 'note'));
   if (s.kind === 'franklin2' || s.kind === 'franklin3') lines.push(p(s.data.keptAll ? 'Your version kept every idea of the original.' : 'Some ideas were lost. That rebuild does not count toward the gate, but the comparison is the learning.', s.data.keptAll ? 'good' : 'note'));
-  const reviewable = s.kind !== 'franklin1' && s.kind !== 'piece' && L.mainText(s).trim();
+  const special = ['placement', 'gatetest'].includes(s.kind) || L.hasImitation(s);
+  if (s.kind === 'placement' || s.kind === 'gatetest') {
+    lines.push(s.data.result ? testResult(s) : testMarkTask(s.id));
+    if (s.kind === 'placement' && s.data.result) lines.push(drillMarkTask(s.id));
+  } else if (L.hasImitation(s)) lines.push(p(plural(L.imitationSentences(s).length, 'imitation') + ' written.', 'lead'), drillMarkTask(s.id));
+  if (s.kind === 'grammar') lines.push(p('Logged: ' + (s.data.unit || '') + '. Tick the area done in Today when you have finished its units.', 'muted small'));
+  const reviewable = !special && s.kind !== 'franklin1' && s.kind !== 'piece' && L.mainText(s).trim();
   return h('div', { class: 'focus-inner done' },
     h('header', { class: 'focus-head' }, h('div', { class: 'fh-left' }, h('span', { class: 'eyebrow' }, KIND_LABEL[s.kind]), h('h2', null, 'Session done'))),
     h('main', { class: 'focus-body' }, h('div', { class: 'stack' }, lines, reviewable ? reviewBox('sessions', s.id) : '')),
     h('footer', { class: 'focus-foot' },
-      reviewable || s.kind === 'piece' ? h('button', { class: 'btn', onclick: () => { App.sel = s.kind === 'piece' ? { coll: 'pieces', id: s.data.pieceId } : { coll: 'sessions', id: s.id }; Engine.close(); go('writing'); } }, 'Open in Writing') : '',
+      reviewable || special || s.kind === 'piece' ? h('button', { class: 'btn', onclick: () => { App.sel = s.kind === 'piece' ? { coll: 'pieces', id: s.data.pieceId } : { coll: 'sessions', id: s.id }; Engine.close(); go('writing'); } }, 'Open in Writing') : '',
       h('button', { class: 'btn primary', onclick: () => { Engine.close(); go('today'); } }, 'Back to Today')));
+}
+
+/* ==== src/app_phase0.js ==== */
+/* app_phase0.js: Phase 0 (placement test, grammar sessions, gate test) and the sentence imitation drill (article session).
+   Adds its steps to STEPS and provides the panels the views use. */
+'use strict';
+
+/* Re-draw whatever is on screen: the session step if a session is open, otherwise the page. */
+function refresh() {
+  const f = document.getElementById('focus');
+  if (f && !f.hidden && (Engine.s || Engine.done)) showFocus(); else render();
+}
+
+/* One request to Claude that returns JSON. Inside the Claude viewer (or with an API key) it is a button;
+   elsewhere it is copy-the-request, paste-the-reply. apply(raw) returns an error message or null. */
+function claudeTask(o) {
+  const box = h('div', { class: 'review' });
+  if (o.intro) box.append(h('p', null, o.intro));
+  if (App.busy[o.key]) { box.classList.add('busy'); box.append(h('p', null, App.busy[o.key])); return box; }
+  const out = h('p', { class: 'muted small' });
+  if (App.sample) {
+    box.append(h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: async () => {
+      App.busy[o.key] = o.busyText || 'Claude is working…'; refresh();
+      let err = null;
+      try { err = o.apply(await App.sample.json(o.prompt(), { cache: false })); }
+      catch (e) { err = sampleError(e); if (e && e.code === 'not_granted') App.sample = null; }
+      delete App.busy[o.key];
+      if (err) App.notice = err;
+      refresh();
+    } }, o.label), out));
+    return box;
+  }
+  const ta = h('textarea', { class: 'sheet small', rows: 4, placeholder: 'Paste Claude’s whole reply here', 'aria-label': 'Claude reply' });
+  box.append(h('p', { class: 'small' }, 'Copy the request into a Claude chat, then paste the whole reply back here.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => copyText(o.prompt(), out) }, 'Copy request'), out), ta,
+    h('button', { class: 'btn', onclick: () => {
+      const raw = L.parsePastedJson(ta.value);
+      if (raw === undefined) { out.textContent = 'No JSON found in that reply. Paste all of it.'; return; }
+      const err = o.apply(raw);
+      if (err) out.textContent = err; else refresh();
+    } }, 'Use the reply'));
+  return box;
+}
+
+const areaById = id => AREAS.find(a => a.id === id);
+const studyAreas = () => { const f = (app().p0 || {}).flagged; return f && f.length ? f : AREAS.map(a => a.id); };
+function saveP0(patch) { saveApp({ p0: Object.assign({}, app().p0 || {}, patch) }); }
+function blankImitations() { return [['', '', ''], ['', '', ''], ['', '', '']]; }
+
+/* ---------- marking: tests and drills ---------- */
+function testSentences(s) { return s.kind === 'placement' ? PLACEMENT : (s.data.sentences || []).map(x => x.sentence); }
+function testMarkTask(sid) {
+  const s = Store.get('sessions', sid);
+  return claudeTask({
+    key: 'mark-' + sid, label: 'Ask Claude to mark it', busyText: 'Claude is marking your test…',
+    intro: 'Claude marks each sentence right or wrong and names the error. It does not give the corrected sentence.',
+    prompt: () => L.testMarkPrompt(testSentences(s), s.data.answers || [], ERROR_TYPES),
+    apply: raw => {
+      const cur = Store.get('sessions', sid), sents = testSentences(cur);
+      const items = L.validateTestMarks(raw, sents.length, ERROR_TYPES);
+      if (!items) return 'Claude’s reply did not mark all ' + sents.length + ' sentences. Try again.';
+      const d = clone(cur);
+      d.data.result = items; d.data.score = items.filter(i => i.ok).length;
+      for (const i of items) if (!i.ok && (d.data.answers[i.n - 1] || '').trim()) {
+        const wrote = d.data.answers[i.n - 1].replace(/\?\s*$/, '').trim();
+        const row = L.logError(Store.get('errors', L.errorId(i.type, wrote)), { type: i.type, wrote, correct: '', by: 'claude', date: L.iso() });
+        Store.put('errors', row.id, row, true);
+      }
+      Store.put('sessions', sid, d, true);
+      if (cur.kind === 'placement') saveP0({ flagged: L.flaggedAreas(items, AREAS), placementId: sid, areas: (app().p0 || {}).areas || {} });
+      else saveP0({ test: null });
+      return null;
+    }
+  });
+}
+function testResult(s) {
+  const r = s.data.result; if (!r) return '';
+  const sents = testSentences(s);
+  const kids = [h('p', { class: s.data.score >= 9 ? 'good' : 'lead' }, s.data.score + ' of ' + sents.length + ' right.' + (s.kind === 'gatetest' ? (s.data.score >= 9 ? ' This passes the Phase 0 test.' : ' The gate needs 9.') : ''))];
+  kids.push(h('ol', { class: 'testres' }, r.map(i => h('li', { class: i.ok ? 'ok' : 'no' },
+    h('span', { class: 'mark', 'aria-label': i.ok ? 'right' : 'wrong' }, i.ok ? '✓' : '✗'),
+    h('span', null, h('span', { class: 'muted small' }, sents[i.n - 1]), h('br'), (s.data.answers || [])[i.n - 1] || '(blank)',
+      i.ok ? '' : [h('br'), h('span', { class: 'tag' }, i.type), ' ', h('span', { class: 'hint' }, i.hint)])))));
+  if (s.kind === 'placement') {
+    const f = L.flaggedAreas(r, AREAS);
+    kids.push(h('p', null, h('strong', null, 'Areas to study: '), f.length ? f.map(id => areaById(id).name).join(', ') : 'none. Every area was right.'));
+  }
+  return h('div', { class: 'stack' }, kids);
+}
+/* Marks on imitation sentences or Part B, without using the weekly piece review. */
+function drillMarkTask(sid) {
+  const s = Store.get('sessions', sid);
+  const text = s.kind === 'placement' ? (s.data.partB || '') : L.mainText(s);
+  if (!text.trim()) return '';
+  if (s.reviewedAt) return h('div', { class: 'review done' }, h('strong', null, 'Marked by Claude'), ': ' + plural((s.marks || []).filter(m => m.by === 'claude').length, 'problem') + '. Fix each one yourself in Writing.');
+  return claudeTask({
+    key: 'drill-' + sid, label: s.kind === 'placement' ? 'Ask Claude to mark Part B' : 'Ask Claude to mark your imitations', busyText: 'Claude is reading your sentences…',
+    intro: s.kind === 'placement' ? 'Part B: Claude points at the errors in your 5 sentences. Each one goes into your error log.' : 'Claude marks your imitation sentences. Every error goes into your error log. This does not use your weekly review.',
+    prompt: () => L.reviewPrompt(text, currentTop3(), ERROR_TYPES),
+    apply: raw => { if (!Array.isArray(raw)) return 'Claude’s reply could not be read. Try again.'; applyReview('sessions', sid, L.validateMarks(raw, text, ERROR_TYPES), 'drill'); return null; }
+  });
+}
+
+/* ---------- session steps ---------- */
+function testRows(d, sents, flash) {
+  return h('ol', { class: 'testlist' }, sents.map((t, i) => h('li', null, h('p', { class: 'src' }, t),
+    h('input', { type: 'text', value: d.answers[i], 'aria-label': 'Your corrected sentence ' + (i + 1), autocomplete: 'off', spellcheck: false,
+      onpaste: e => { e.preventDefault(); flash('Paste is off.'); }, oninput: e => { d.answers[i] = e.target.value; } }))));
+}
+Object.assign(STEPS, {
+  test(s, flash) {
+    const d = s.data; d.answers = d.answers && d.answers.length === 10 ? d.answers : PLACEMENT.slice(); d.partB = d.partB || '';
+    const c = counter('pb', L.splitSentences(d.partB).length + ' of 5 sentences');
+    return { el: h('div', { class: 'stack' },
+      p('No AI, no grammar checker, no dictionary. If you are unsure, guess and add "?" to the end.', 'lead'),
+      h('h3', null, 'Part A: correct each sentence'), p('Some have more than one error. Edit the sentence in its box.', 'muted small'),
+      testRows(d, PLACEMENT, flash),
+      h('h3', null, 'Part B: write 5 sentences about what you did yesterday'),
+      writeArea({ id: 'partb', value: d.partB, rows: 6, flash, label: 'Part B', oninput: v => { d.partB = v; c.textContent = L.splitSentences(v).length + ' of 5 sentences'; } }),
+      h('div', { class: 'meta' }, c)),
+      ready: () => L.splitSentences(d.partB).length >= 5 ? null : 'Write 5 sentences in Part B.' };
+  },
+  gtest(s, flash) {
+    const d = s.data, sents = (d.sentences || []).map(x => x.sentence);
+    d.answers = d.answers && d.answers.length === sents.length ? d.answers : sents.slice();
+    return { el: h('div', { class: 'stack' }, p('A new test from Claude. Correct each sentence; some have more than one error. 9 right passes Phase 0.', 'lead'), testRows(d, sents, flash)), ready: () => null };
+  },
+  unit(s, flash) {
+    const d = s.data, p0 = app().p0 || {};
+    const ids = studyAreas();
+    d.area = d.area || ids.find(id => !(p0.areas && p0.areas[id] && p0.areas[id].done)) || ids[0];
+    d.checks = d.checks || {};
+    const info = h('p', { class: 'muted small' }, areaById(d.area).covers);
+    return { el: h('div', { class: 'stack' },
+      p('One unit from Murphy, English Grammar in Use: read the rule on the left page, do the exercises on the right, then check them with the answer key at the back.', 'lead'),
+      h('label', { class: 'field' }, 'Area', h('select', { onchange: e => { d.area = e.target.value; info.textContent = areaById(d.area).covers; } },
+        ids.map(id => h('option', { value: id, selected: id === d.area }, areaById(id).name + (p0.areas && p0.areas[id] && p0.areas[id].done ? ' (done)' : ''))))), info,
+      h('label', { class: 'field' }, 'Unit', h('input', { type: 'text', value: d.unit || '', placeholder: 'e.g. Unit 7, present perfect and past simple', oninput: e => { d.unit = e.target.value; } })),
+      [['rule', 'Read the rule'], ['ex', 'Did the exercises'], ['key', 'Checked them with the answer key']].map(([k, l]) =>
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!d.checks[k], onchange: e => { d.checks[k] = e.target.checked; } }), ' ' + l))),
+      ready: () => !(d.unit || '').trim() ? 'Write which unit you did.' : !(d.checks.rule && d.checks.ex && d.checks.key) ? 'Tick all three once you have done them.' : null,
+      commit: () => {
+        const areas = clone((app().p0 || {}).areas || {}); const a = areas[d.area] || (areas[d.area] = { done: false, units: [] });
+        a.units = (a.units || []).filter(u => u !== d.unit.trim()).concat([d.unit.trim()]);
+        saveP0({ areas });
+      } };
+  },
+  use(s, flash) {
+    const d = s.data, c = counter('us', L.splitSentences(d.text).length + ' of 5 sentences');
+    return { el: h('div', { class: 'stack' }, p('Write 5 sentences of your own that use this unit’s grammar, about your work or your day.', 'lead'),
+      p(d.unit || '', 'topic'),
+      writeArea({ id: 'use', value: d.text, rows: 7, flash, oninput: v => { d.text = v; c.textContent = L.splitSentences(v).length + ' of 5 sentences'; } }), h('div', { class: 'meta' }, c)),
+      ready: () => L.splitSentences(d.text).length >= 5 ? null : 'Write 5 sentences.' };
+  },
+  article(s) {
+    const d = s.data;
+    const c = counter('aw', L.countWords(d.source) + ' words');
+    return { el: h('div', { class: 'stack' },
+      p('Choose an article you would like to be able to write, in your field or the kind of writing you want to do. Paste 2-3 paragraphs.', 'lead'),
+      h('details', null, h('summary', null, 'How the drill works (example)'),
+        h('p', { class: 'small' }, h('strong', null, 'Model: '), IMITATION_EXAMPLE.model), h('p', { class: 'small' }, h('strong', null, 'Pattern: '), IMITATION_EXAMPLE.pattern),
+        h('p', { class: 'small' }, h('strong', null, 'Grammar inside it: '), IMITATION_EXAMPLE.grammar), h('p', { class: 'small' }, h('strong', null, 'Your imitation: '), IMITATION_EXAMPLE.imitation)),
+      h('label', { class: 'field' }, 'Article title', h('input', { type: 'text', value: d.article || '', oninput: e => { d.article = e.target.value; } })),
+      h('label', { class: 'field' }, 'Link (optional)', h('input', { type: 'url', value: d.link || '', oninput: e => { d.link = e.target.value; } })),
+      h('label', { class: 'field' }, '2-3 paragraphs (pasting is fine here: this is the model, not your writing)',
+        h('textarea', { class: 'sheet small', rows: 8, value: d.source || '', 'aria-label': 'Article paragraphs', oninput: e => { d.source = e.target.value; c.textContent = L.countWords(e.target.value) + ' words'; } })),
+      h('div', { class: 'meta' }, c)),
+      ready: () => L.countWords(d.source) >= 40 ? null : 'Paste 2-3 paragraphs (40 words or more).' };
+  },
+  patterns(s, flash) {
+    const d = s.data;
+    if (d.selfFind === undefined) d.selfFind = sessions().filter(x => x.status === 'done' && L.hasImitation(x)).length >= 4;
+    const box = h('div', { class: 'stack' });
+    if (!d.selfFind) {
+      box.append(p('Claude breaks down one paragraph: how it is built, then 3 sentence patterns and the grammar inside each.', 'lead'));
+      if (d.breakdown) {
+        box.append(h('p', null, h('strong', null, 'Structure: '), d.breakdown.structure),
+          h('ol', { class: 'pats' }, d.breakdown.patterns.map(x => h('li', null, h('p', { class: 'src' }, x.model), h('p', null, h('strong', null, 'Pattern: '), x.pattern), h('p', { class: 'muted small' }, x.grammar)))));
+      } else {
+        box.append(claudeTask({ key: 'bd-' + s.id, label: 'Ask Claude for the breakdown', busyText: 'Claude is breaking the paragraph down…',
+          prompt: () => L.breakdownPrompt(d.source),
+          apply: raw => { const b = L.validateBreakdown(raw, d.source); if (!b) return 'The breakdown did not quote 3 sentences exactly from your article. Try again.'; d.breakdown = b; d.patterns = b.patterns; Engine.save(); return null; } }));
+      }
+      box.append(h('button', { class: 'btn quiet small', onclick: () => { d.selfFind = true; showFocus(); } }, 'Find the patterns myself instead'));
+    } else {
+      const sents = L.splitSentences(d.source);
+      d.patterns = d.patterns && d.patterns.length === 3 ? d.patterns : [0, 1, 2].map(i => ({ model: sents[i] || '', pattern: '', grammar: '' }));
+      box.append(p('Find 3 sentence patterns yourself: pick a sentence, write its structure as a formula, and name the grammar inside it. Claude only checks them.', 'lead'),
+        h('ol', { class: 'pats' }, d.patterns.map((x, i) => h('li', null,
+          h('label', { class: 'field' }, 'Model sentence', h('select', { onchange: e => { x.model = e.target.value; } }, sents.map(t => h('option', { value: t, selected: t === x.model }, t.length > 90 ? t.slice(0, 88) + '…' : t)))),
+          h('label', { class: 'field' }, 'Pattern', h('input', { type: 'text', value: x.pattern, placeholder: '[Group] + [verb] + the way they + [verb]: …', oninput: e => { x.pattern = e.target.value; } })),
+          h('label', { class: 'field' }, 'Grammar inside it', h('input', { type: 'text', value: x.grammar, oninput: e => { x.grammar = e.target.value; } })),
+          d.patternCheck && d.patternCheck[i] ? h('p', { class: d.patternCheck[i].ok ? 'good small' : 'note small' }, d.patternCheck[i].ok ? 'Checked: right.' : d.patternCheck[i].note) : ''))),
+        claudeTask({ key: 'pc-' + s.id, label: 'Ask Claude to check my patterns', busyText: 'Claude is checking your patterns…',
+          prompt: () => L.patternCheckPrompt(d.patterns), apply: raw => { const r = L.validatePatternCheck(raw, 3); if (!r) return 'Claude’s reply could not be read. Try again.'; d.patternCheck = r; Engine.save(); return null; } }));
+    }
+    return { el: box, ready: () => d.patterns && d.patterns.length === 3 && d.patterns.every(x => x.model && (x.pattern || '').trim()) ? null : d.selfFind ? 'Write a pattern for each of the 3 sentences.' : 'Get the breakdown first, or find the patterns yourself.' };
+  },
+  imitate(s, flash) {
+    const d = s.data; d.imitations = d.imitations && d.imitations.length === 3 ? d.imitations : blankImitations();
+    return { el: h('div', { class: 'stack' },
+      p('Write 3 imitations of each pattern on your own topics. The model sentences are hidden; use the formula and the grammar note.', 'lead'),
+      d.patterns.map((x, i) => h('section', { class: 'imit' }, h('span', { class: 'eyebrow' }, 'Pattern ' + (i + 1)), h('p', null, x.pattern), x.grammar ? h('p', { class: 'muted small' }, x.grammar) : '',
+        [0, 1, 2].map(j => h('input', { type: 'text', value: d.imitations[i][j], 'aria-label': 'Pattern ' + (i + 1) + ', imitation ' + (j + 1), autocomplete: 'off', spellcheck: false,
+          onpaste: e => { e.preventDefault(); flash('Paste is off. Write every word yourself.'); }, oninput: e => { d.imitations[i][j] = e.target.value; } }))))),
+      ready: () => d.imitations.every(r => r.every(x => (x || '').trim())) ? null : 'Write 3 imitations of each pattern.' };
+  }
+});
+
+/* ---------- the Foundations panel (Today and Plan) ---------- */
+function foundationsPanel() {
+  const a = app(), p0 = a.p0 || {};
+  if (!p0.flagged) {
+    const taken = sessions().find(s => s.kind === 'placement' && s.status === 'done');
+    return h('div', { class: 'stack' }, p(taken ? 'Your placement test is waiting to be marked. The result decides which grammar areas you study.' : 'Start with the placement test. Its result decides which grammar areas you study.', 'small'),
+      taken ? h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => { App.sel = { coll: 'sessions', id: taken.id }; go('writing'); } }, 'Open the test')) : '');
+  }
+  const areas = p0.areas || {};
+  const list = p0.flagged.length ? h('ul', { class: 'areas' }, p0.flagged.map(id => {
+    const ar = areaById(id), st = areas[id] || {};
+    return h('li', null, h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!st.done, onchange: e => { const n = clone(areas); n[id] = Object.assign({ units: [] }, n[id], { done: e.target.checked }); saveP0({ areas: n }); } }),
+      h('span', null, h('strong', null, ar.name), h('small', null, ar.covers + ((st.units || []).length ? ' · Units: ' + st.units.join('; ') : '')))));
+  })) : p('Your placement test flagged no areas.', 'good small');
+  const allDone = p0.flagged.every(id => areas[id] && areas[id].done);
+  const best = sessions().filter(s => s.kind === 'gatetest' && s.data && typeof s.data.score === 'number').reduce((m, s) => Math.max(m, s.data.score), -1);
+  let gate;
+  if (!allDone) gate = p('When every area is done, Claude writes a new 10-sentence test. 9 right passes.', 'muted small');
+  else if (p0.test) gate = h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => Engine.start('gatetest', { data: { sentences: p0.test } }) }, 'Take the new test · 15 min'));
+  else gate = claudeTask({ key: 'newtest', label: 'Ask Claude for a new test', busyText: 'Claude is writing your test…',
+    intro: 'Every flagged area is done. Claude writes 10 new sentences with errors in your areas.',
+    prompt: () => L.newTestPrompt(studyAreas().map(id => areaById(id).name)),
+    apply: raw => { const t = L.validateNewTest(raw, AREAS.map(x => x.name)); if (!t) return 'Claude’s reply did not contain 10 sentences. Try again.'; saveP0({ test: t }); return null; } });
+  return h('div', { class: 'stack' }, list, gate, best >= 0 ? p('Best gate test score: ' + best + ' of 10.', best >= 9 ? 'good small' : 'muted small') : '');
 }
 
 /* ==== src/app_views.js ==== */
@@ -1727,8 +2155,8 @@ function drawNav() {
   nav.replaceChildren(...VIEWS.map(([id, label]) => h('a', { href: '#' + id, class: App.route === id ? 'on' : '', 'aria-current': App.route === id ? 'page' : null,
     onclick: e => { e.preventDefault(); go(id); } }, label)));
   const ph = document.getElementById('phase');
-  ph.replaceChildren(a ? h('div', null, h('span', { class: 'eyebrow' }, 'Phase ' + a.phase + ' of 4'), h('strong', null, PHASES[a.phase].name),
-    h('span', { class: 'phasedots' }, [1, 2, 3, 4].map(n => h('i', { class: n < a.phase ? 'past' : n === a.phase ? 'now' : '' })))) : '');
+  ph.replaceChildren(a ? h('div', null, h('span', { class: 'eyebrow' }, 'Phase ' + a.phase + ' of 5 (0-4)'), h('strong', null, PHASES[a.phase].name),
+    h('span', { class: 'phasedots' }, [0, 1, 2, 3, 4].map(n => h('i', { class: n < a.phase ? 'past' : n === a.phase ? 'now' : '' })))) : '');
 }
 function drawStatus() {
   const el = document.getElementById('status');
@@ -1894,9 +2322,16 @@ function viewToday() {
     h('h2', null, act.kind ? act.title : act.title),
     h('p', null, act.why),
     act.kind ? h('div', { class: 'row' }, h('button', { class: 'btn primary big', onclick: () => startAction(act) }, act.resume ? 'Resume' : act.doneToday ? 'Do it now anyway' : 'Start' + (act.minutes ? ' · ' + act.minutes + ' min' : '')),
-      act.resume ? h('button', { class: 'btn quiet', onclick: () => { Store.remove('sessions', act.resume); } }, 'Discard it') : '') : '');
+      act.resume ? h('button', { class: 'btn quiet', onclick: () => { Store.remove('sessions', act.resume); } }, 'Discard it') : '')
+      : act.openId ? h('div', { class: 'row' }, h('button', { class: 'btn primary big', onclick: () => { App.sel = { coll: 'sessions', id: act.openId }; go('writing'); } }, 'Open the test')) : '');
+  /* The plan gained a Phase 0. Someone who started on the old plan chooses once. */
+  const offer = a.phase === 1 && !a.p0Offered ? card('next', h('span', { class: 'eyebrow' }, 'The plan changed'), h('h2', null, 'The plan now starts with Phase 0: Foundations'),
+    p('Six weeks of grammar before free writing: a placement test, the areas it flags, and a new test to pass. Start there, or carry on with Phase 1.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => saveApp({ phase: 0, phaseStarted: Object.assign({}, a.phaseStarted, { 0: App.today }), p0Offered: true }) }, 'Start Phase 0'),
+      h('button', { class: 'btn quiet', onclick: () => saveApp({ p0Offered: true }) }, 'Stay in Phase 1'))) : '';
+  const foundations = a.phase === 0 ? card('', h('h3', null, 'Foundations: grammar areas'), foundationsPanel()) : '';
   /* other options */
-  const kinds = a.phase === 1 ? [] : a.phase === 2 ? ['franklin1', 'combining', 'summary', 'paragraph'] : ['franklin3', 'combining'];
+  const kinds = a.phase <= 1 ? ['imitation'] : a.phase === 2 ? ['franklin1', 'combining', 'summary', 'paragraph', 'imitation'] : ['franklin3', 'combining', 'imitation'];
   const pick = h('select', { 'aria-label': 'Another drill' }, kinds.map(k => h('option', { value: k }, KIND_LABEL[k])));
   const targets = L.drillTargets(errorsList(), sessions());
   const others = card('others', h('h3', null, 'Other options'),
@@ -1924,7 +2359,7 @@ function viewToday() {
   return h('div', { class: 'page' },
     h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, fmtDate(today) + ' · Phase ' + a.phase + ', week ' + wk), h('h1', null, PHASES[a.phase].name), anchor),
     gap != null && gap >= 7 ? h('p', { class: 'alert' }, 'It has been ' + gap + ' days since your last session. The plan still works at 4 sessions a week; it fails at zero for two weeks.') : '',
-    nextCard, h('div', { class: 'grid2' }, card('weekcard', h('h3', null, 'This week'), strip, h('p', { class: 'muted small' }, 'Claude reviews left this week: ' + reviewsLeft())), readCard), others);
+    offer, nextCard, foundations, h('div', { class: 'grid2' }, card('weekcard', h('h3', null, 'This week'), strip, h('p', { class: 'muted small' }, 'Claude reviews left this week: ' + reviewsLeft())), readCard), others);
 }
 
 /* ---------- Plan ---------- */
@@ -1949,6 +2384,7 @@ function viewPlan() {
         n <= a.phase ? [meter(i.rate ? Math.min(i.have, i.need) : i.have, i.need), h('span', { class: 'gv' }, i.rate ? rateText(i.rate) : i.have + ' / ' + i.need)] : '')))) : '',
       cur && gate && gate.met ? h('div', { class: 'row' }, n === 2 ? h('label', { class: 'field inline' }, 'Form for the next three months', form) : '',
         h('button', { class: 'btn primary', onclick: () => advancePhase(form.value) }, 'Move to Phase ' + (n + 1))) : '',
+      n === 0 && cur ? foundationsPanel() : '',
       cur && n === 1 ? p('Top errors so far: ' + (L.computeTop3(errorsList()).join(', ') || 'none yet') + '. These freeze as your top 3 when Phase 2 starts.', 'muted small') : '');
   };
   const p2table = h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Day', 'Drill (25 min)', 'What it trains'].map(x => h('th', null, x)))),
@@ -1959,7 +2395,7 @@ function viewPlan() {
   return h('div', { class: 'page' },
     h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, 'Six months, about 30 minutes a day'), h('h1', null, 'The plan'),
       p('You move to the next phase when its gate is met, not when the calendar says so. If a phase runs long, the plan is still working.')),
-    [1, 2, 3, 4].map(phaseCard),
+    [0, 1, 2, 3, 4].map(phaseCard),
     card('', h('h3', null, 'Phase 2 week'), p('Drills run as a queue in this order, so a missed day never breaks a rebuild. The rebuild waits at least a day after the notes. Every second rebuild, the notes come back shuffled.', 'muted small'), h('div', { class: 'scroll' }, p2table)),
     card('', h('h3', null, 'The rules'), p('You write every word yourself; AI only points at problems after the draft is done.'),
       h('div', { class: 'scroll' }, h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Use', 'Allowed', 'Why'].map(x => h('th', null, x)))), h('tbody', null, RULES_TABLE.map(r => h('tr', null, r.map((c, i) => h('td', { class: i === 1 ? 'b' : '' }, c)))))))),
@@ -1967,6 +2403,14 @@ function viewPlan() {
       h('ul', { class: 'books' }, BOOKS.map(b => { const st = (a.books || {})[b.id] || {}; return h('li', null,
         h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!st.read, onchange: e => saveApp({ books: Object.assign({}, a.books, { [b.id]: Object.assign({}, st, { read: e.target.checked }) }) }) }),
           h('span', null, h('strong', null, b.title), ' · ' + b.author, h('small', null, 'Phase ' + b.phase + (b.form ? ' (' + b.form + 's)' : '') + '. ' + b.why)))); }))),
+    card('', h('h3', null, 'The sentence imitation drill'),
+      p('Learn from well-written articles by writing your own sentences in their patterns. Reading a breakdown teaches you to recognize good writing; writing in the pattern teaches you to produce it.', 'small'),
+      h('p', { class: 'small' }, h('strong', null, 'Model: '), IMITATION_EXAMPLE.model), h('p', { class: 'small' }, h('strong', null, 'Pattern: '), IMITATION_EXAMPLE.pattern),
+      h('p', { class: 'small' }, h('strong', null, 'Grammar inside it: '), IMITATION_EXAMPLE.grammar),
+      p('Phase 0: twice a week instead of the 5 sentences. Phase 1: twice a week instead of the timed writing. Phase 2: once a week instead of one drill. From your fifth session you find the patterns yourself and Claude only checks them.', 'muted small')),
+    card('', h('h3', null, 'When things go wrong'), h('div', { class: 'scroll' }, h('table', { class: 'tbl' }, h('tbody', null, TROUBLE.map(r => h('tr', null, h('td', { class: 'b' }, r[0]), h('td', null, r[1]))))))),
+    card('', h('h3', null, 'How confident is this plan?'), h('div', { class: 'scroll' }, h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Part', 'Confidence', 'Basis'].map(x => h('th', null, x)))),
+      h('tbody', null, CONFIDENCE.map(r => h('tr', null, r.map((c, i) => h('td', { class: i === 1 ? 'b' : '' }, c)))))))),
     card('', h('h3', null, 'Links'), h('ul', { class: 'links' }, SITES.map(([t, u]) => h('li', null, h('a', { href: u, target: '_blank', rel: 'noopener' }, t))))));
 }
 function rateText(r) { return r.words < 900 ? r.words + ' of 900 marked words' : r.perType.map(x => x.type + ' ' + x.per300.toFixed(1)).join(' · ') + ' per 300'; }
@@ -1975,7 +2419,7 @@ function rateText(r) { return r.words < 900 ? r.words + ' of 900 marked words' :
 function viewWriting() {
   const a = app();
   const items = pieces().map(x => ({ coll: 'pieces', doc: x, t: x.createdAt }))
-    .concat(sessions().filter(s => s.status === 'done' && (L.mainText(s).trim() || s.kind === 'franklin1')).map(x => ({ coll: 'sessions', doc: x, t: x.finishedAt || x.startedAt })))
+    .concat(sessions().filter(s => s.status === 'done' && (L.mainText(s).trim() || ['franklin1', 'placement', 'gatetest'].includes(s.kind))).map(x => ({ coll: 'sessions', doc: x, t: x.finishedAt || x.startedAt })))
     .sort((x, y) => (y.t || '').localeCompare(x.t || ''));
   if (!App.sel && items[0]) App.sel = { coll: items[0].coll, id: items[0].doc.id };
   const sel = App.sel && Store.get(App.sel.coll, App.sel.id) ? App.sel : null;
@@ -2006,9 +2450,18 @@ function sessionDetail(id) {
   if (d.sprint) bits.push(p(plural(d.sprint.words, 'word') + ' in ' + mmss(d.sprint.seconds) + ', longest pause ' + mmss(d.sprint.maxPause) + (d.sprint.interrupted ? ', interrupted' : '') + '.', 'muted small'));
   if (s.kind === 'franklin1') bits.push(h('ol', { class: 'notelist' }, (d.notes || []).map(n => h('li', null, n))), p(L.pendingNotes([s].concat(sessions())) && L.pendingNotes([s].concat(sessions())).id === s.id ? 'Waiting to be rebuilt.' : 'Rebuilt.', 'muted small'));
   if (s.kind === 'combining') { const set = setById(d.setId); bits.push(h('ol', { class: 'source6' }, set.s.map(t => h('li', null, t)))); (d.ways || []).forEach((w, i) => bits.push(h('h3', null, 'Way ' + (i + 1)), textWithMarks(w, []))); }
-  else if (L.mainText(s)) bits.push(textWithMarks(L.mainText(s), s.marks));
+  else if (s.kind === 'placement' || s.kind === 'gatetest') {
+    bits.push(d.result ? testResult(s) : testMarkTask(id));
+    if (s.kind === 'placement' && d.partB) bits.push(h('h3', null, 'Part B'), textWithMarks(d.partB, s.marks), d.result ? drillMarkTask(id) : '');
+  } else if (L.hasImitation(s)) {
+    if (d.article) bits.push(p(['Article: ', d.link ? h('a', { href: d.link, target: '_blank', rel: 'noopener' }, d.article) : d.article], 'muted small'));
+    (d.patterns || []).forEach((x, i) => bits.push(h('section', { class: 'imit' }, h('span', { class: 'eyebrow' }, 'Pattern ' + (i + 1)), h('p', { class: 'muted small' }, x.model), h('p', null, x.pattern),
+      h('ul', null, ((d.imitations || [])[i] || []).filter(Boolean).map(t => h('li', null, t))))));
+    bits.push(textWithMarks(L.mainText(s), s.marks), drillMarkTask(id));
+  } else if (L.mainText(s)) bits.push(textWithMarks(L.mainText(s), s.marks));
+  if (s.kind === 'grammar') bits.push(p((areaById(d.area) || {}).name + ' \u00b7 ' + (d.unit || ''), 'muted small'));
   if ((s.kind === 'franklin2' || s.kind === 'franklin3') && d.diffs) bits.push(h('details', null, h('summary', null, 'Original and differences'), modelBlock(modelById(d.modelId)), h('ul', { class: 'rules' }, d.diffs.map(x => h('li', null, x)))), p(d.keptAll ? 'Kept every idea.' : 'Some ideas were lost.', d.keptAll ? 'good small' : 'note small'));
-  if (s.kind !== 'franklin1' && s.kind !== 'combining') bits.push(reviewBox('sessions', id));
+  if (!['franklin1', 'combining', 'placement', 'gatetest'].includes(s.kind) && !L.hasImitation(s)) bits.push(reviewBox('sessions', id));
   bits.push(marksPanel('sessions', id));
   bits.push(h('div', { class: 'row end' }, h('button', { class: 'btn quiet danger small', onclick: e => {
     const b = e.currentTarget; if (b.dataset.sure) { Store.remove('sessions', id); App.sel = null; } else { b.dataset.sure = 1; b.textContent = 'Delete it for good'; }
@@ -2122,7 +2575,7 @@ function viewSetup() {
     card('', h('h3', null, 'Phases 3 and 4'),
       field('Form', sel('form', Object.entries(FORMS).map(([k, f]) => [k, f.label + ' (' + f.min + '-' + f.max + ' words)'])), 'Pick one form for three months. If you can’t decide, start with essays.'),
       field('Where you will publish', txt('publishPlace', 'Substack, Medium, LinkedIn or a blog for the Hub')),
-      field('Current phase', sel('phase', [[1, 'Phase 1'], [2, 'Phase 2'], [3, 'Phase 3'], [4, 'Phase 4']], true), 'Normally the gate moves you on. Change this only to correct a mistake.')),
+      field('Current phase', sel('phase', [[0, 'Phase 0'], [1, 'Phase 1'], [2, 'Phase 2'], [3, 'Phase 3'], [4, 'Phase 4']], true), 'Normally the gate moves you on. Change this only to correct a mistake.')),
     window.desktop ? desktopClaudeCard() : '', modelsCard(), dataCard());
 }
 function modelsCard() {
@@ -2194,7 +2647,7 @@ function onboarding() {
       field('Start date', h('input', { type: 'date', value: st.start, onchange: e => { st.start = e.target.value || L.iso(); } })),
       h('button', { class: 'btn primary big', onclick: () => {
         const a = Object.assign(defaultApp(st.start), { anchorRoutine: st.routine.trim(), anchorPlace: st.place.trim(), restDays: st.wk.sort() });
-        a.phaseStarted = { 1: st.start };
+        a.phaseStarted = { 0: st.start };
         Store.put('state', 'app', a, true);
         for (const e of PLAN_ERRORS) { const row = L.logError(null, Object.assign({ by: 'plan', date: st.start }, e)); Store.put('errors', row.id, row, true); }
         go('today');
@@ -2249,6 +2702,11 @@ async function boot() {
   });
   render();
   await Store.init();
+  /* The plan's error log grew from 5 to 11 rows: add any that are missing, once. */
+  if (app() && !app().planRows2) {
+    for (const e of PLAN_ERRORS) { const id = L.errorId(e.type, e.wrote); if (!Store.get('errors', id)) { const row = L.logError(null, Object.assign({ by: 'plan', date: app().startDate || L.iso() }, e)); Store.put('errors', row.id, row, true); } }
+    Store.put('state', 'app', Object.assign(clone(app()), { planRows2: true }), true);
+  }
   render();
   if (window.claude && window.claude.use) {
     window.claude.use('sample').then(s => { App.sample = s; queueRender(); }).catch(() => {});

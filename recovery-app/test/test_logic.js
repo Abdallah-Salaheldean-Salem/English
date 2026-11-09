@@ -65,15 +65,85 @@ t('phase 2 drill queue follows Mon-Fri order and survives missed days', () => {
     if (a.kind === 'franklin2') ss[ss.length - 1].data.notesId = a.data.notesId;
     return a.kind;
   };
-  // Sun..Thu, then a missed Sunday, resume Monday
-  const seqKinds = ['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-16', '2026-11-17', '2026-11-18'].map(run);
-  assert.deepStrictEqual(seqKinds, ['franklin1', 'combining', 'franklin2', 'summary', 'paragraph', 'franklin1', 'combining', 'franklin2']);
+  // Sun..Thu (the 4th weekday is the weekly article session), then a missed Sunday, resume Monday
+  const seqKinds = ['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19'].map(run);
+  assert.deepStrictEqual(seqKinds, ['franklin1', 'combining', 'franklin2', 'imitation', 'summary', 'paragraph', 'franklin1', 'combining', 'imitation']);
+  assert.strictEqual(ss.filter(s => s.kind === 'imitation' && L.inWeek(s.date, '2026-11-12', 0)).length, 1, 'once a week');
   // the second notes session is the shuffled one
   const f1 = ss.filter(s => s.kind === 'franklin1');
   assert.strictEqual(!!f1[0].data.shuffled, false); assert.strictEqual(f1[1].data.shuffled, true);
   // weekend => piece
   const w = L.nextAction(app, ss, [], MODELS, '2026-11-13');
   assert.strictEqual(w.kind, 'piece'); assert.strictEqual(w.minutes, 60); assert.ok(w.newPiece);
+});
+
+t('phase 0: placement first, then grammar, imitation twice a week', () => {
+  const app = Object.assign({}, APP, { phase: 0 });
+  assert.strictEqual(L.nextAction(app, [], [], MODELS, '2026-11-08').kind, 'placement');
+  const taken = S('placement', '2026-11-08', { phase: 0, data: { answers: [] } });
+  const unmarked = L.nextAction(app, [taken], [], MODELS, '2026-11-09');
+  assert.strictEqual(unmarked.kind, null); assert.strictEqual(unmarked.openId, taken.id);
+  taken.data.result = [{ n: 1, ok: false }];
+  const ss = [taken];
+  const kinds = ['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-15', '2026-11-16'].map(d => {
+    const a = L.nextAction(app, ss, [], MODELS, d); ss.push(S(a.kind, d, { phase: 0, data: Object.assign({}, a.data) })); return a.kind + (a.data && a.data.imitate ? '+imitate' : '');
+  });
+  // week 1: Mon(slot 1 because Sunday's placement counts) imitate, Tue, Wed(slot 3) imitate, Thu; week 2: Sun, Mon(slot 1) imitate
+  assert.deepStrictEqual(kinds, ['grammar+imitate', 'grammar', 'grammar+imitate', 'grammar', 'grammar', 'grammar+imitate']);
+  assert.strictEqual(L.nextAction(app, ss, [], MODELS, '2026-11-13').kind, null, 'weekend');
+  assert.deepStrictEqual(L.flowFor('grammar', { imitate: true }).map(x => x.id), ['unit', 'article', 'patterns', 'imitate']);
+});
+
+t('phase 1: article session replaces the timed writing twice a week', () => {
+  const ss = [];
+  const kinds = ['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12'].map(d => {
+    const a = L.nextAction(APP, ss, [], MODELS, d); ss.push(S(a.kind, d, { data: Object.assign({}, a.data) })); return a.data && a.data.imitate ? 'imitate' : a.kind;
+  });
+  assert.deepStrictEqual(kinds, ['phase1', 'imitate', 'phase1', 'imitate', 'phase1']);
+  assert.deepStrictEqual(L.flowFor('phase1', { imitate: true }).map(x => x.id), ['copy', 'article', 'patterns', 'imitate', 'check']);
+  assert.ok(!L.flowFor('phase1', { imitate: true }).some(x => x.sprint), 'no sprint on imitation days');
+});
+
+t('phase 0 gate and placement areas', () => {
+  const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({ n, ok: ![4, 7].includes(n) }));
+  assert.deepStrictEqual(L.flaggedAreas(items, C.AREAS), ['articles', 'punct']);
+  assert.deepStrictEqual(L.flaggedAreas(items.map(i => Object.assign({}, i, { ok: true })), C.AREAS), []);
+  const app = Object.assign({}, APP, { phase: 0 });
+  let g = L.evaluateGates(app, [], [], [], [])[0];
+  assert.strictEqual(g.items[0].label, 'Placement test taken and marked'); assert.ok(!g.met);
+  app.p0 = { flagged: ['articles', 'punct'], areas: { articles: { done: true } } };
+  const imit = (d, n, marked) => S('imitation', d, { phase: 0, reviewedAt: marked ? d + 'T10:00:00Z' : '', data: { imitations: [Array(3).fill('x'), Array(3).fill('y'), Array(3).fill('z')].map(a => a.slice(0, n)) } });
+  const ss = [imit('2026-11-09', 3, true), imit('2026-11-10', 3, true), imit('2026-11-11', 3, false), S('gatetest', '2026-11-12', { phase: 0, data: { score: 8 } })];
+  g = L.evaluateGates(app, ss, [], [], [])[0];
+  assert.deepStrictEqual(g.items.map(i => [i.have, i.met]), [[1, false], [8, false], [18, false]]);
+  app.p0.areas.punct = { done: true };
+  ss.push(imit('2026-11-12', 1, true), S('gatetest', '2026-11-13', { phase: 0, data: { score: 9 } }));
+  g = L.evaluateGates(app, ss, [], [], [])[0];
+  assert.ok(g.met, JSON.stringify(g.items));
+  app.p0 = { flagged: [], areas: {} };
+  assert.ok(L.evaluateGates(app, ss, [], [], [])[0].items[0].met, 'nothing flagged means the first item is met');
+});
+
+t('Phase 0 and imitation prompts and reply checks', () => {
+  const raw = C.PLACEMENT.map((_, i) => ({ n: i + 1, ok: i % 2 === 0, type: i === 1 ? 'Verb tense' : 'Nonsense', hint: 'h' }));
+  const m = L.validateTestMarks(raw, 10, C.ERROR_TYPES);
+  assert.strictEqual(m.length, 10); assert.strictEqual(m[1].type, 'Verb tense'); assert.strictEqual(m[3].type, 'Other'); assert.strictEqual(m[0].hint, '');
+  assert.strictEqual(L.validateTestMarks(raw.slice(0, 9), 10, C.ERROR_TYPES), null);
+  assert.ok(/Never write the corrected/.test(L.testMarkPrompt(C.PLACEMENT, [], C.ERROR_TYPES)));
+  const names = C.AREAS.map(a => a.name);
+  assert.strictEqual(L.validateNewTest(Array(10).fill({ sentence: 'He go to work.', area: 'Verb forms' }), names).length, 10);
+  assert.strictEqual(L.validateNewTest(Array(9).fill({ sentence: 'He go to work.' }), names), null);
+  const article = 'Most engineers learn to write the way they learn to debug. They repeat mistakes.\nGood writers read a lot. They also rewrite.';
+  const good = { structure: 's', patterns: [{ model: 'They repeat mistakes.', pattern: 'p', grammar: 'g' }, { model: 'Good writers read a lot.', pattern: 'p', grammar: 'g' }, { model: 'They also rewrite.', pattern: 'p', grammar: 'g' }] };
+  assert.strictEqual(L.validateBreakdown(good, article).patterns.length, 3);
+  const bad = JSON.parse(JSON.stringify(good)); bad.patterns[0].model = 'An invented sentence.';
+  assert.strictEqual(L.validateBreakdown(bad, article), null, 'models must be quoted from the article');
+  assert.deepStrictEqual(L.parsePastedJson('Sure!\n```json\n{"a":1}\n```'), { a: 1 });
+  assert.deepStrictEqual(L.parsePastedJson('x [1,2] y'), [1, 2]);
+  assert.strictEqual(L.parsePastedJson('nothing'), undefined);
+  const s = S('grammar', '2026-11-09', { data: { imitate: true, imitations: [['a', ''], ['b']], text: 'ignored' } });
+  assert.strictEqual(L.mainText(s), 'a\nb');
+  assert.strictEqual(L.reviewsThisWeek(APP, [Object.assign({}, s, { reviewedAt: '2026-11-09T10:00:00Z', reviewMode: 'drill' })], [], '2026-11-09'), 0, 'drill marking does not use the weekly review');
 });
 
 t('phase 2 rebuild waits a calendar day', () => {

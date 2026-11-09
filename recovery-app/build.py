@@ -5,7 +5,7 @@ import json, pathlib, sys
 
 ROOT = pathlib.Path(__file__).parent
 SRC = ROOT / 'src'
-ORDER = ['content.js', 'models.json', 'logic.js', 'migrate.js', 'store.js', 'app_core.js', 'app_focus.js', 'app_views.js', 'app_events.js']
+ORDER = ['content.js', 'models.json', 'logic.js', 'migrate.js', 'store.js', 'app_core.js', 'app_focus.js', 'app_phase0.js', 'app_views.js', 'app_events.js']
 
 def part(name):
     text = (SRC / name).read_text(encoding='utf-8')

@@ -301,3 +301,14 @@ body.in-focus { overflow: hidden; }
   .tbl.errors td.by { grid-column: 2 / -1; text-align: right; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Phase 0 and the imitation drill */
+.testlist, .testres, .pats { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 12px; }
+.testlist .src, .pats .src { font: 15px/1.5 var(--f-write); color: var(--ink2); margin-bottom: 4px; }
+.testlist input { width: 100%; font: 17px var(--f-write); background: var(--sheet); }
+.testres li { list-style: none; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; margin-left: -22px; font: 15px/1.5 var(--f-write); }
+.testres .mark { font: 600 15px var(--f-ui); } .testres li.ok .mark { color: var(--green); } .testres li.no .mark { color: var(--red); }
+.imit { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r); }
+.imit input { width: 100%; font: 16px var(--f-write); }
+.imit ul { margin: 0; padding-left: 18px; font-family: var(--f-write); }
+.areas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }

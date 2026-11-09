@@ -52,18 +52,33 @@ const L = (() => {
     summary: [['source', 3], ['write', 17], ['check', 5]],
     paragraph: [['point', 3], ['notes', 5], ['order', 2], ['draft', 10], ['link', 3], ['close', 2]],
     piece: [['work', 25]],
-    drill: [['study', 5], ['practice', 15], ['check', 5]]
+    drill: [['study', 5], ['practice', 15], ['check', 5]],
+    placement: [['test', 10]],
+    gatetest: [['gtest', 15]],
+    grammar: [['unit', 15], ['use', 10]],
+    imitation: [['article', 3], ['patterns', 5], ['imitate', 17]]
+  };
+  /* On imitation days the drill takes the place of one step (roadmap section 5). */
+  const IMITATE_VARIANT = {
+    grammar: [['unit', 15], ['article', 2], ['patterns', 3], ['imitate', 10]],
+    phase1: [['copy', 5], ['article', 2], ['patterns', 3], ['imitate', 10], ['check', 5]]
   };
   function flowFor(kind, data) {
     data = data || {};
-    let f = (FLOWS[kind] || []).map(([id, min, sprint]) => ({ id, min, sprint: !!sprint }));
+    const src = data.imitate && IMITATE_VARIANT[kind] ? IMITATE_VARIANT[kind] : (FLOWS[kind] || []);
+    let f = src.map(([id, min, sprint]) => ({ id, min, sprint: !!sprint }));
     if (kind === 'franklin2' && !data.shuffled) f = f.filter(s => s.id !== 'order');
     if (kind === 'piece' && data.minutes) f = [{ id: 'work', min: data.minutes, sprint: false }];
     return f;
   }
   /* The text a session produced, for word counts and review. */
+  const imitationSentences = s => ((s.data && s.data.imitations) || []).flat().map(x => (x || '').trim()).filter(Boolean);
+  const hasImitation = s => s.kind === 'imitation' || !!(s.data && s.data.imitate);
   function mainText(s) {
     const d = s.data || {};
+    if (hasImitation(s)) return imitationSentences(s).join('\n');
+    if (s.kind === 'placement') return d.partB || '';
+    if (s.kind === 'gatetest') return '';
     if (s.kind === 'combining') return (d.ways || []).join('\n\n');
     if (s.kind === 'paragraph') return [d.draft || '', d.close || ''].filter(Boolean).join(' ');
     if (s.kind === 'franklin1') return '';
@@ -110,7 +125,7 @@ const L = (() => {
   const P3_SLOTS = ['piece', 'franklin3', 'piece', 'combining', 'piece'];
 
   function nextAction(app, sessions, pieces, models, today) {
-    const phase = app.phase || 1;
+    const phase = typeof app.phase === "number" ? app.phase : 1;
     const all = sessions.slice().sort(byTime);
     const active = all.filter(s => s.status === 'active').pop();
     if (active) return { kind: active.kind, resume: active.id, title: 'Finish your ' + active.kind + ' session', why: 'You started this and did not finish it.', minutes: 0 };
@@ -123,10 +138,23 @@ const L = (() => {
       const m = nextModel(models, phase >= 3 ? form : 'essay', all);
       return Object.assign({ modelId: m && m.id }, extra || {});
     };
+    /* Weekday sessions already done this week (before today), and imitation days among them. */
+    const weekDoneBefore = done.filter(s => s.phase === phase && inWeek(s.date, today, ws) && !isWeekend(s.date, app) && s.kind !== 'short' && s.kind !== 'drill' && s.date !== today);
+    const imitationsThisWeek = done.filter(s => s.phase === phase && inWeek(s.date, today, ws) && hasImitation(s)).length;
+    const twiceWeekly = () => (weekDoneBefore.length === 1 || weekDoneBefore.length >= 3) && imitationsThisWeek < 2;
     let a;
-    if (phase === 1) {
+    if (phase === 0) {
+      const placed = done.some(s => s.kind === 'placement' && s.data && s.data.result);
+      const taken = done.find(s => s.kind === 'placement');
+      if (!placed && !taken) a = { kind: 'placement', title: 'Placement test', why: '10 sentences to correct and 5 to write. No AI, no checker, no dictionary. Guess and mark unsure answers with "?".', minutes: 10 };
+      else if (!placed) a = { kind: null, title: 'Get your placement test marked', why: 'Open it in Writing and ask Claude to mark it. The result decides which grammar areas you study.', minutes: 0, openId: taken.id };
+      else if (weekend) a = { kind: null, title: 'Weekend', why: 'Phase 0 runs on 5 weekdays. Read for 15 minutes today.', minutes: 0 };
+      else if (twiceWeekly()) a = { kind: 'grammar', data: { imitate: true }, title: 'Grammar unit, then sentence imitation', why: 'One Murphy unit (15 minutes), then imitate 3 sentence patterns from an article.', minutes: 30 };
+      else a = { kind: 'grammar', title: 'Grammar unit, then use it', why: 'One Murphy unit (15 minutes), then 5 sentences of your own that use it (10 minutes).', minutes: 25 };
+    } else if (phase === 1) {
       a = weekend ? { kind: null, title: 'Weekend', why: 'Phase 1 runs on 5 weekdays. Read for 15 minutes today.', minutes: 0 }
-                  : { kind: 'phase1', title: 'Copy, write, check', why: 'Copy 5 minutes, write 15 without stopping, check 5.', minutes: 25 };
+        : twiceWeekly() ? { kind: 'phase1', data: { imitate: true }, title: 'Copy, imitate, check', why: 'Copy 5 minutes, an article session instead of the timed writing, then check.', minutes: 25 }
+        : { kind: 'phase1', title: 'Copy, write, check', why: 'Copy 5 minutes, write 15 without stopping, check 5.', minutes: 25 };
     } else if (phase === 2 && weekend) {
       const p = openPiece(pieces, 2, 2);
       const st = p ? p.status : 'plan';
@@ -136,7 +164,9 @@ const L = (() => {
       const p2 = done.filter(s => s.phase === 2 && (P2_CYCLE.includes(s.kind) || s.kind === 'franklin2'));
       const pend = pendingNotes(done);
       const last = p2[p2.length - 1];
-      if (pend && pend.date < today && last && last.kind !== 'franklin1') {
+      if (weekDoneBefore.length === 3 && imitationsThisWeek === 0) {
+        a = { kind: 'imitation', title: 'Article session', why: 'Once a week, sentence imitation replaces one drill: 3 patterns from an article, 3 imitations of each.', minutes: 25 };
+      } else if (pend && pend.date < today && last && last.kind !== 'franklin1') {
         a = { kind: 'franklin2', title: 'Rebuild from your notes', why: 'Rebuild the paragraph from the notes you took on ' + pend.date + ', then compare.', minutes: 25,
               data: { notesId: pend.id, modelId: pend.data.modelId, shuffled: !!pend.data.shuffled } };
       } else {
@@ -156,7 +186,7 @@ const L = (() => {
       if (weekend) {
         a = { kind: null, title: 'Weekend', why: 'Read for 15 minutes. Pieces and drills run on weekdays.', minutes: 0 };
       } else {
-        const weekDone = done.filter(s => s.phase === phase && inWeek(s.date, today, ws) && !isWeekend(s.date, app) && s.kind !== 'short' && s.kind !== 'drill' && s.date !== today);
+        const weekDone = weekDoneBefore;
         const slot = weekDone.length;
         let pick = phase === 3 ? (P3_SLOTS[slot] || 'piece')
                                : (slot >= 1 && !weekDone.some(s => s.kind === 'franklin3') ? 'franklin3' : 'piece');
@@ -262,8 +292,24 @@ const L = (() => {
     const perType = top3.map(t => ({ type: t, count: counts[t], per300: words ? counts[t] / words * 300 : 0 }));
     return { words, perType, met: words >= 900 && top3.length > 0 && perType.every(x => x.per300 <= 1) };
   }
+  /* Areas to study: every area with a wrong Part A item. */
+  function flaggedAreas(items, areas) {
+    const wrong = new Set((items || []).filter(i => !i.ok).map(i => i.n));
+    return areas.filter(a => a.items.some(n => wrong.has(n))).map(a => a.id);
+  }
   function evaluateGates(app, sessions, pieces, errors, critiques) {
     const done = sessions.filter(s => s.status === 'done');
+    const p0 = app.p0 || {};
+    const flagged = p0.flagged;
+    const areasDone = flagged ? flagged.filter(id => p0.areas && p0.areas[id] && p0.areas[id].done).length : 0;
+    const bestTest = done.filter(s => s.kind === 'gatetest' && s.data && typeof s.data.score === 'number').reduce((m, s) => Math.max(m, s.data.score), 0);
+    const marked = done.filter(s => hasImitation(s) && s.reviewedAt).reduce((t, s) => t + imitationSentences(s).length, 0);
+    const g0 = [
+      flagged ? { label: 'Every area the placement test flagged is done', have: areasDone, need: flagged.length, met: areasDone === flagged.length }
+              : { label: 'Placement test taken and marked', have: 0, need: 1 },
+      { label: '9 or more right on a new 10-sentence test', have: bestTest, need: 9 },
+      { label: '20 sentence imitations written and marked', have: marked, need: 20 }
+    ];
     const n1 = done.filter(s => s.kind === 'phase1').length;
     let best = 0;
     for (const s of done) { const sp = s.data && s.data.sprint; if (sprintClean(sp, app.pauseLimit) && sp.seconds <= 905) best = Math.max(best, sp.words || 0); }
@@ -288,12 +334,12 @@ const L = (() => {
       { label: '5 critiques written for other writers', have: critiques.length, need: 5 }
     ];
     const fin = items => { for (const i of items) if (i.met === undefined) i.met = i.have >= i.need; return { items, met: items.every(i => i.met) }; };
-    return { 1: fin(g1), 2: fin(g2), 3: fin(g3) };
+    return { 0: fin(g0), 1: fin(g1), 2: fin(g2), 3: fin(g3) };
   }
 
   /* ---------- reviews ---------- */
   function reviewsThisWeek(app, sessions, pieces, today) {
-    return sessions.concat(pieces).filter(x => x.reviewedAt && inWeek(x.reviewedAt.slice(0, 10), today, app.weekStart || 0)).length;
+    return sessions.concat(pieces).filter(x => x.reviewedAt && x.reviewMode !== 'drill' && inWeek(x.reviewedAt.slice(0, 10), today, app.weekStart || 0)).length;
   }
   function reviewPrompt(text, top3, types) {
     return 'You are marking a draft written by an adult who is rebuilding their English writing without AI help.\n' +
@@ -341,6 +387,70 @@ const L = (() => {
     try { return validateMarks(JSON.parse(s.slice(a, b + 1)), text, types); } catch (e) { return null; }
   }
 
+  /* ---------- Phase 0 tests and the imitation drill: prompts and reply checks ---------- */
+  const NO_FIX = 'Never write the corrected sentence or any replacement words anywhere in your reply.';
+  function testMarkPrompt(sentences, answers, types) {
+    return 'You are marking a grammar test for an adult rebuilding their English. Each original sentence below has one or more errors; the learner rewrote it to correct it.\n' +
+      'For each item decide whether the learner\'s version is fully correct, natural English that keeps the meaning. A "?" in the answer means the learner was unsure; ignore the "?" itself.\n' +
+      NO_FIX + ' If an item is wrong, name the error type (one of: ' + types.join('; ') + ') and give one short hint question that points at the problem without giving the fix.\n' +
+      'Reply with only a JSON array of ' + sentences.length + ' objects in order: [{"n":1,"ok":true,"type":"","hint":""}, ...].\n\n' +
+      sentences.map((t, i) => (i + 1) + '. Original: ' + t + '\n   Learner: ' + (answers[i] || '(blank)')).join('\n');
+  }
+  function validateTestMarks(raw, count, types) {
+    if (!Array.isArray(raw)) return null;
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const r = raw.find(x => x && Number(x.n) === i + 1) || raw[i];
+      if (!r || typeof r.ok !== 'boolean') return null;
+      out.push({ n: i + 1, ok: r.ok, type: r.ok ? '' : (types.includes(r.type) ? r.type : 'Other'), hint: r.ok ? '' : clip(r.hint, 300) });
+    }
+    return out;
+  }
+  function newTestPrompt(areaNames) {
+    return 'Write a new 10-sentence grammar test for an adult engineer rebuilding their English. Each sentence must contain one or two errors for the learner to correct, ' +
+      'like "She work in a lab every day." or "We need more informations about the project." Use everyday topics from work, a university lab, electronics and daily life. ' +
+      'Cover these areas, at least once each and more often for the first ones: ' + areaNames.join('; ') + '.\n' +
+      'Do not include the corrected versions. Reply with only a JSON array of 10 objects: [{"sentence":"...","area":"<one of the area names>"}].';
+  }
+  function validateNewTest(raw, areaNames) {
+    if (!Array.isArray(raw)) return null;
+    const out = raw.filter(x => x && typeof x.sentence === 'string' && x.sentence.trim().length > 8).slice(0, 10)
+      .map(x => ({ sentence: x.sentence.trim().slice(0, 200), area: areaNames.includes(x.area) ? x.area : '' }));
+    return out.length === 10 ? out : null;
+  }
+  function breakdownPrompt(article) {
+    return 'Below are 2-3 paragraphs from an article a learner wants to learn to write like. Break down ONE paragraph for a sentence imitation drill.\n' +
+      'Give: "structure", one or two sentences on how the paragraph is built; then exactly 3 "patterns". For each pattern: "model", one sentence copied exactly, character for character, from the text; ' +
+      '"pattern", its structure as a fill-in formula like "[Group] + [verb] + the way they + [verb]: [how], by + [-ing verb] + until + [clause]"; "grammar", the grammar inside it in one line.\n' +
+      'Reply with only JSON: {"structure":"...","patterns":[{"model":"...","pattern":"...","grammar":"..."}, ...]}.\n\nText:\n"""\n' + article + '\n"""';
+  }
+  function validateBreakdown(raw, article) {
+    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.patterns)) return null;
+    const flat = article.replace(/\s+/g, ' ');
+    const pats = raw.patterns.filter(x => x && typeof x.pattern === 'string' && x.pattern.trim() && typeof x.model === 'string' && flat.includes(x.model.replace(/\s+/g, ' ').trim()))
+      .slice(0, 3).map(x => ({ model: x.model.replace(/\s+/g, ' ').trim(), pattern: clip(x.pattern, 300), grammar: clip(x.grammar, 300) }));
+    return pats.length === 3 ? { structure: clip(raw.structure, 400), patterns: pats } : null;
+  }
+  function patternCheckPrompt(patterns) {
+    return 'A learner found sentence patterns in an article for an imitation drill. For each, check that the formula describes the model sentence\'s structure and that the grammar note is right. ' +
+      'Do not rewrite their formula; if something is off, say what to look at again in one short sentence.\n' +
+      'Reply with only a JSON array of ' + patterns.length + ' objects: [{"ok":true,"note":""}, ...].\n\n' +
+      patterns.map((x, i) => (i + 1) + '. Model: ' + x.model + '\n   Formula: ' + x.pattern + '\n   Grammar: ' + x.grammar).join('\n');
+  }
+  function validatePatternCheck(raw, n) {
+    if (!Array.isArray(raw) || raw.length < n) return null;
+    return raw.slice(0, n).map(x => ({ ok: !!(x && x.ok === true), note: clip(x && x.note, 300) }));
+  }
+  /* Pull the JSON value out of a pasted reply. */
+  function parsePastedJson(t) {
+    t = t || '';
+    const tries = [t, (t.match(/```(?:json)?\s*([\s\S]*?)```/) || [])[1]];
+    const a = t.search(/[[{]/), b = Math.max(t.lastIndexOf(']'), t.lastIndexOf('}'));
+    if (a >= 0 && b > a) tries.push(t.slice(a, b + 1));
+    for (const x of tries) { if (!x) continue; try { return JSON.parse(x); } catch (e) { /* next */ } }
+    return undefined;
+  }
+
   /* ---------- weekly tracker ---------- */
   function weekRows(app, sessions, errors, today) {
     const ws = app.weekStart || 0, start = app.startDate || today;
@@ -365,7 +475,9 @@ const L = (() => {
   return { iso, addDays, dow, daysBetween, weekStartOf, weekIndex, isWeekend, inWeek, countWords, splitSentences, sentenceReport, sentenceAround,
     FLOWS, flowFor, mainText, sprintClean, sprintPasses, nextModel, shuffleOrder, pendingNotes, nextAction, stagesFor, pieceTarget, readers,
     stageBlockers, advancePiece, norm, errorId, logError, errorTypeCounts, computeTop3, drillTargets, top3Rate, evaluateGates,
-    reviewsThisWeek, reviewPrompt, validateMarks, repairPrompt, validateRepair, parsePastedMarks, weekRows, daysSinceLast };
+    reviewsThisWeek, reviewPrompt, validateMarks, repairPrompt, validateRepair, parsePastedMarks, weekRows, daysSinceLast,
+    imitationSentences, hasImitation, flaggedAreas, testMarkPrompt, validateTestMarks, newTestPrompt, validateNewTest, breakdownPrompt, validateBreakdown,
+    patternCheckPrompt, validatePatternCheck, parsePastedJson };
 })();
 
 if (typeof module !== 'undefined') module.exports = L;

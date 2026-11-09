@@ -26,8 +26,8 @@ function drawNav() {
   nav.replaceChildren(...VIEWS.map(([id, label]) => h('a', { href: '#' + id, class: App.route === id ? 'on' : '', 'aria-current': App.route === id ? 'page' : null,
     onclick: e => { e.preventDefault(); go(id); } }, label)));
   const ph = document.getElementById('phase');
-  ph.replaceChildren(a ? h('div', null, h('span', { class: 'eyebrow' }, 'Phase ' + a.phase + ' of 4'), h('strong', null, PHASES[a.phase].name),
-    h('span', { class: 'phasedots' }, [1, 2, 3, 4].map(n => h('i', { class: n < a.phase ? 'past' : n === a.phase ? 'now' : '' })))) : '');
+  ph.replaceChildren(a ? h('div', null, h('span', { class: 'eyebrow' }, 'Phase ' + a.phase + ' of 5 (0-4)'), h('strong', null, PHASES[a.phase].name),
+    h('span', { class: 'phasedots' }, [0, 1, 2, 3, 4].map(n => h('i', { class: n < a.phase ? 'past' : n === a.phase ? 'now' : '' })))) : '');
 }
 function drawStatus() {
   const el = document.getElementById('status');
@@ -193,9 +193,16 @@ function viewToday() {
     h('h2', null, act.kind ? act.title : act.title),
     h('p', null, act.why),
     act.kind ? h('div', { class: 'row' }, h('button', { class: 'btn primary big', onclick: () => startAction(act) }, act.resume ? 'Resume' : act.doneToday ? 'Do it now anyway' : 'Start' + (act.minutes ? ' · ' + act.minutes + ' min' : '')),
-      act.resume ? h('button', { class: 'btn quiet', onclick: () => { Store.remove('sessions', act.resume); } }, 'Discard it') : '') : '');
+      act.resume ? h('button', { class: 'btn quiet', onclick: () => { Store.remove('sessions', act.resume); } }, 'Discard it') : '')
+      : act.openId ? h('div', { class: 'row' }, h('button', { class: 'btn primary big', onclick: () => { App.sel = { coll: 'sessions', id: act.openId }; go('writing'); } }, 'Open the test')) : '');
+  /* The plan gained a Phase 0. Someone who started on the old plan chooses once. */
+  const offer = a.phase === 1 && !a.p0Offered ? card('next', h('span', { class: 'eyebrow' }, 'The plan changed'), h('h2', null, 'The plan now starts with Phase 0: Foundations'),
+    p('Six weeks of grammar before free writing: a placement test, the areas it flags, and a new test to pass. Start there, or carry on with Phase 1.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => saveApp({ phase: 0, phaseStarted: Object.assign({}, a.phaseStarted, { 0: App.today }), p0Offered: true }) }, 'Start Phase 0'),
+      h('button', { class: 'btn quiet', onclick: () => saveApp({ p0Offered: true }) }, 'Stay in Phase 1'))) : '';
+  const foundations = a.phase === 0 ? card('', h('h3', null, 'Foundations: grammar areas'), foundationsPanel()) : '';
   /* other options */
-  const kinds = a.phase === 1 ? [] : a.phase === 2 ? ['franklin1', 'combining', 'summary', 'paragraph'] : ['franklin3', 'combining'];
+  const kinds = a.phase <= 1 ? ['imitation'] : a.phase === 2 ? ['franklin1', 'combining', 'summary', 'paragraph', 'imitation'] : ['franklin3', 'combining', 'imitation'];
   const pick = h('select', { 'aria-label': 'Another drill' }, kinds.map(k => h('option', { value: k }, KIND_LABEL[k])));
   const targets = L.drillTargets(errorsList(), sessions());
   const others = card('others', h('h3', null, 'Other options'),
@@ -223,7 +230,7 @@ function viewToday() {
   return h('div', { class: 'page' },
     h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, fmtDate(today) + ' · Phase ' + a.phase + ', week ' + wk), h('h1', null, PHASES[a.phase].name), anchor),
     gap != null && gap >= 7 ? h('p', { class: 'alert' }, 'It has been ' + gap + ' days since your last session. The plan still works at 4 sessions a week; it fails at zero for two weeks.') : '',
-    nextCard, h('div', { class: 'grid2' }, card('weekcard', h('h3', null, 'This week'), strip, h('p', { class: 'muted small' }, 'Claude reviews left this week: ' + reviewsLeft())), readCard), others);
+    offer, nextCard, foundations, h('div', { class: 'grid2' }, card('weekcard', h('h3', null, 'This week'), strip, h('p', { class: 'muted small' }, 'Claude reviews left this week: ' + reviewsLeft())), readCard), others);
 }
 
 /* ---------- Plan ---------- */
@@ -248,6 +255,7 @@ function viewPlan() {
         n <= a.phase ? [meter(i.rate ? Math.min(i.have, i.need) : i.have, i.need), h('span', { class: 'gv' }, i.rate ? rateText(i.rate) : i.have + ' / ' + i.need)] : '')))) : '',
       cur && gate && gate.met ? h('div', { class: 'row' }, n === 2 ? h('label', { class: 'field inline' }, 'Form for the next three months', form) : '',
         h('button', { class: 'btn primary', onclick: () => advancePhase(form.value) }, 'Move to Phase ' + (n + 1))) : '',
+      n === 0 && cur ? foundationsPanel() : '',
       cur && n === 1 ? p('Top errors so far: ' + (L.computeTop3(errorsList()).join(', ') || 'none yet') + '. These freeze as your top 3 when Phase 2 starts.', 'muted small') : '');
   };
   const p2table = h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Day', 'Drill (25 min)', 'What it trains'].map(x => h('th', null, x)))),
@@ -258,7 +266,7 @@ function viewPlan() {
   return h('div', { class: 'page' },
     h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, 'Six months, about 30 minutes a day'), h('h1', null, 'The plan'),
       p('You move to the next phase when its gate is met, not when the calendar says so. If a phase runs long, the plan is still working.')),
-    [1, 2, 3, 4].map(phaseCard),
+    [0, 1, 2, 3, 4].map(phaseCard),
     card('', h('h3', null, 'Phase 2 week'), p('Drills run as a queue in this order, so a missed day never breaks a rebuild. The rebuild waits at least a day after the notes. Every second rebuild, the notes come back shuffled.', 'muted small'), h('div', { class: 'scroll' }, p2table)),
     card('', h('h3', null, 'The rules'), p('You write every word yourself; AI only points at problems after the draft is done.'),
       h('div', { class: 'scroll' }, h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Use', 'Allowed', 'Why'].map(x => h('th', null, x)))), h('tbody', null, RULES_TABLE.map(r => h('tr', null, r.map((c, i) => h('td', { class: i === 1 ? 'b' : '' }, c)))))))),
@@ -266,6 +274,14 @@ function viewPlan() {
       h('ul', { class: 'books' }, BOOKS.map(b => { const st = (a.books || {})[b.id] || {}; return h('li', null,
         h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!st.read, onchange: e => saveApp({ books: Object.assign({}, a.books, { [b.id]: Object.assign({}, st, { read: e.target.checked }) }) }) }),
           h('span', null, h('strong', null, b.title), ' · ' + b.author, h('small', null, 'Phase ' + b.phase + (b.form ? ' (' + b.form + 's)' : '') + '. ' + b.why)))); }))),
+    card('', h('h3', null, 'The sentence imitation drill'),
+      p('Learn from well-written articles by writing your own sentences in their patterns. Reading a breakdown teaches you to recognize good writing; writing in the pattern teaches you to produce it.', 'small'),
+      h('p', { class: 'small' }, h('strong', null, 'Model: '), IMITATION_EXAMPLE.model), h('p', { class: 'small' }, h('strong', null, 'Pattern: '), IMITATION_EXAMPLE.pattern),
+      h('p', { class: 'small' }, h('strong', null, 'Grammar inside it: '), IMITATION_EXAMPLE.grammar),
+      p('Phase 0: twice a week instead of the 5 sentences. Phase 1: twice a week instead of the timed writing. Phase 2: once a week instead of one drill. From your fifth session you find the patterns yourself and Claude only checks them.', 'muted small')),
+    card('', h('h3', null, 'When things go wrong'), h('div', { class: 'scroll' }, h('table', { class: 'tbl' }, h('tbody', null, TROUBLE.map(r => h('tr', null, h('td', { class: 'b' }, r[0]), h('td', null, r[1]))))))),
+    card('', h('h3', null, 'How confident is this plan?'), h('div', { class: 'scroll' }, h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ['Part', 'Confidence', 'Basis'].map(x => h('th', null, x)))),
+      h('tbody', null, CONFIDENCE.map(r => h('tr', null, r.map((c, i) => h('td', { class: i === 1 ? 'b' : '' }, c)))))))),
     card('', h('h3', null, 'Links'), h('ul', { class: 'links' }, SITES.map(([t, u]) => h('li', null, h('a', { href: u, target: '_blank', rel: 'noopener' }, t))))));
 }
 function rateText(r) { return r.words < 900 ? r.words + ' of 900 marked words' : r.perType.map(x => x.type + ' ' + x.per300.toFixed(1)).join(' · ') + ' per 300'; }
@@ -274,7 +290,7 @@ function rateText(r) { return r.words < 900 ? r.words + ' of 900 marked words' :
 function viewWriting() {
   const a = app();
   const items = pieces().map(x => ({ coll: 'pieces', doc: x, t: x.createdAt }))
-    .concat(sessions().filter(s => s.status === 'done' && (L.mainText(s).trim() || s.kind === 'franklin1')).map(x => ({ coll: 'sessions', doc: x, t: x.finishedAt || x.startedAt })))
+    .concat(sessions().filter(s => s.status === 'done' && (L.mainText(s).trim() || ['franklin1', 'placement', 'gatetest'].includes(s.kind))).map(x => ({ coll: 'sessions', doc: x, t: x.finishedAt || x.startedAt })))
     .sort((x, y) => (y.t || '').localeCompare(x.t || ''));
   if (!App.sel && items[0]) App.sel = { coll: items[0].coll, id: items[0].doc.id };
   const sel = App.sel && Store.get(App.sel.coll, App.sel.id) ? App.sel : null;
@@ -305,9 +321,18 @@ function sessionDetail(id) {
   if (d.sprint) bits.push(p(plural(d.sprint.words, 'word') + ' in ' + mmss(d.sprint.seconds) + ', longest pause ' + mmss(d.sprint.maxPause) + (d.sprint.interrupted ? ', interrupted' : '') + '.', 'muted small'));
   if (s.kind === 'franklin1') bits.push(h('ol', { class: 'notelist' }, (d.notes || []).map(n => h('li', null, n))), p(L.pendingNotes([s].concat(sessions())) && L.pendingNotes([s].concat(sessions())).id === s.id ? 'Waiting to be rebuilt.' : 'Rebuilt.', 'muted small'));
   if (s.kind === 'combining') { const set = setById(d.setId); bits.push(h('ol', { class: 'source6' }, set.s.map(t => h('li', null, t)))); (d.ways || []).forEach((w, i) => bits.push(h('h3', null, 'Way ' + (i + 1)), textWithMarks(w, []))); }
-  else if (L.mainText(s)) bits.push(textWithMarks(L.mainText(s), s.marks));
+  else if (s.kind === 'placement' || s.kind === 'gatetest') {
+    bits.push(d.result ? testResult(s) : testMarkTask(id));
+    if (s.kind === 'placement' && d.partB) bits.push(h('h3', null, 'Part B'), textWithMarks(d.partB, s.marks), d.result ? drillMarkTask(id) : '');
+  } else if (L.hasImitation(s)) {
+    if (d.article) bits.push(p(['Article: ', d.link ? h('a', { href: d.link, target: '_blank', rel: 'noopener' }, d.article) : d.article], 'muted small'));
+    (d.patterns || []).forEach((x, i) => bits.push(h('section', { class: 'imit' }, h('span', { class: 'eyebrow' }, 'Pattern ' + (i + 1)), h('p', { class: 'muted small' }, x.model), h('p', null, x.pattern),
+      h('ul', null, ((d.imitations || [])[i] || []).filter(Boolean).map(t => h('li', null, t))))));
+    bits.push(textWithMarks(L.mainText(s), s.marks), drillMarkTask(id));
+  } else if (L.mainText(s)) bits.push(textWithMarks(L.mainText(s), s.marks));
+  if (s.kind === 'grammar') bits.push(p((areaById(d.area) || {}).name + ' \u00b7 ' + (d.unit || ''), 'muted small'));
   if ((s.kind === 'franklin2' || s.kind === 'franklin3') && d.diffs) bits.push(h('details', null, h('summary', null, 'Original and differences'), modelBlock(modelById(d.modelId)), h('ul', { class: 'rules' }, d.diffs.map(x => h('li', null, x)))), p(d.keptAll ? 'Kept every idea.' : 'Some ideas were lost.', d.keptAll ? 'good small' : 'note small'));
-  if (s.kind !== 'franklin1' && s.kind !== 'combining') bits.push(reviewBox('sessions', id));
+  if (!['franklin1', 'combining', 'placement', 'gatetest'].includes(s.kind) && !L.hasImitation(s)) bits.push(reviewBox('sessions', id));
   bits.push(marksPanel('sessions', id));
   bits.push(h('div', { class: 'row end' }, h('button', { class: 'btn quiet danger small', onclick: e => {
     const b = e.currentTarget; if (b.dataset.sure) { Store.remove('sessions', id); App.sel = null; } else { b.dataset.sure = 1; b.textContent = 'Delete it for good'; }
@@ -421,7 +446,7 @@ function viewSetup() {
     card('', h('h3', null, 'Phases 3 and 4'),
       field('Form', sel('form', Object.entries(FORMS).map(([k, f]) => [k, f.label + ' (' + f.min + '-' + f.max + ' words)'])), 'Pick one form for three months. If you can’t decide, start with essays.'),
       field('Where you will publish', txt('publishPlace', 'Substack, Medium, LinkedIn or a blog for the Hub')),
-      field('Current phase', sel('phase', [[1, 'Phase 1'], [2, 'Phase 2'], [3, 'Phase 3'], [4, 'Phase 4']], true), 'Normally the gate moves you on. Change this only to correct a mistake.')),
+      field('Current phase', sel('phase', [[0, 'Phase 0'], [1, 'Phase 1'], [2, 'Phase 2'], [3, 'Phase 3'], [4, 'Phase 4']], true), 'Normally the gate moves you on. Change this only to correct a mistake.')),
     window.desktop ? desktopClaudeCard() : '', modelsCard(), dataCard());
 }
 function modelsCard() {
@@ -493,7 +518,7 @@ function onboarding() {
       field('Start date', h('input', { type: 'date', value: st.start, onchange: e => { st.start = e.target.value || L.iso(); } })),
       h('button', { class: 'btn primary big', onclick: () => {
         const a = Object.assign(defaultApp(st.start), { anchorRoutine: st.routine.trim(), anchorPlace: st.place.trim(), restDays: st.wk.sort() });
-        a.phaseStarted = { 1: st.start };
+        a.phaseStarted = { 0: st.start };
         Store.put('state', 'app', a, true);
         for (const e of PLAN_ERRORS) { const row = L.logError(null, Object.assign({ by: 'plan', date: st.start }, e)); Store.put('errors', row.id, row, true); }
         go('today');

@@ -44,6 +44,11 @@ async function boot() {
   });
   render();
   await Store.init();
+  /* The plan's error log grew from 5 to 11 rows: add any that are missing, once. */
+  if (app() && !app().planRows2) {
+    for (const e of PLAN_ERRORS) { const id = L.errorId(e.type, e.wrote); if (!Store.get('errors', id)) { const row = L.logError(null, Object.assign({ by: 'plan', date: app().startDate || L.iso() }, e)); Store.put('errors', row.id, row, true); } }
+    Store.put('state', 'app', Object.assign(clone(app()), { planRows2: true }), true);
+  }
   render();
   if (window.claude && window.claude.use) {
     window.claude.use('sample').then(s => { App.sample = s; queueRender(); }).catch(() => {});
