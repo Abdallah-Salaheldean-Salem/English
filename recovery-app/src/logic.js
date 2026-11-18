@@ -354,8 +354,78 @@ const L = (() => {
       'Reply with only a JSON array such as [{"quote":"a examples","type":"Article with a plural","hint":"Can a or an go before a plural noun?","note":"A and an go only before singular countable nouns, as in a cat but cats."}]. Reply [] if there are no problems.\n\n' +
       'Draft:\n"""\n' + text + '\n"""';
   }
+  /* Tutor mode: the learner does not know the rules yet, so Claude gives the fix (shown after one try), the rule, examples and practice sentences. */
+  function tutorPrompt(text, top3, types) {
+    return 'You are an English tutor. The draft below was written by an adult engineer who is rebuilding their English and does not know the grammar rules yet, so teach them.\n' +
+      'For each problem give:\n' +
+      '- "quote": copied exactly, character for character, from the draft: the shortest span that contains the problem, at most 12 words. If the fix only removes words, include a neighbouring word so "answer" is never empty.\n' +
+      '- "type": exactly one of: ' + types.join('; ') + '.\n' +
+      '- "answer": the corrected words that replace "quote", so the sentence becomes correct, natural English. Change as little as possible.\n' +
+      '- "explain": what is wrong in this sentence, in one plain sentence without grammar jargon. Do not give the answer in it: the learner tries to fix it first.\n' +
+      '- "rule": the general rule in at most three short, plain sentences.\n' +
+      '- "examples": two short correct sentences that follow the rule, not taken from the draft.\n' +
+      '- "practice": two new short sentences that contain the same kind of mistake, each with its corrected version, about work, a university lab, electronics or daily life.\n' +
+      'Grammar, spelling, punctuation and usage only; ignore style. At most 10 marks, most important first.\n' +
+      (top3 && top3.length ? '- The writer is working on: ' + top3.join(', ') + '. Mark every instance of these.\n' : '') +
+      'Reply with only a JSON array such as [{"quote":"a examples","type":"Article with a plural","answer":"examples","explain":"A means one, but examples means more than one.",' +
+      '"rule":"Use a or an only before one countable thing. Before plurals, use no article, some, or the.","examples":["I need an adapter.","We bought new resistors."],' +
+      '"practice":[{"wrong":"She ordered a sensors for the lab.","right":"She ordered sensors for the lab."},{"wrong":"He fixed a printers today.","right":"He fixed the printers today."}]}]. Reply [] if there are no problems.\n\n' +
+      'Draft:\n"""\n' + text + '\n"""';
+  }
+  /* Loose comparison for a learner's fix: spacing, curly quotes and final punctuation do not matter; letters and case do. */
+  const loose = s => (s || '').replace(/[\u2018\u2019`]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\s+/g, ' ').replace(/\s+([.,;:!?])/g, '$1').replace(/[.!?]+$/, '').trim();
+  const sameText = (a, b) => loose(a) === loose(b) && loose(a) !== '';
+  function lessonFields(m, quote) {
+    let answer = typeof m.answer === 'string' ? m.answer.trim().slice(0, 240) : '';
+    if (loose(answer) === loose(quote)) answer = '';
+    if (!answer) return {};
+    const examples = (Array.isArray(m.examples) ? m.examples : []).filter(x => typeof x === 'string' && x.trim()).slice(0, 2).map(x => clip(x, 200));
+    const practice = (Array.isArray(m.practice) ? m.practice : [])
+      .filter(x => x && typeof x.wrong === 'string' && typeof x.right === 'string' && x.wrong.trim() && x.right.trim() && loose(x.wrong) !== loose(x.right))
+      .slice(0, 2).map(x => ({ wrong: clip(x.wrong, 240), right: clip(x.right, 240) }));
+    return { answer, hint: clip(m.explain, 300) || clip(m.hint, 300), rule: clip(m.rule, 400), examples, practice, shown: false, tried: '', firstTry: null };
+  }
+  /* The sentence the mark sits in, before and after the fix. */
+  function lessonFromMark(text, m) {
+    const sent = sentenceAround(text, m.at) || m.quote, k = sent.indexOf(m.quote);
+    if (k < 0) return { wrong: m.quote, right: m.answer, rule: m.rule || '', examples: m.examples || [], practice: m.practice || [], explain: m.hint || '' };
+    /* A run-on sentence is cut to about 12 words on each side of the mistake. */
+    const words = (s, n, end) => { const w = s.split(/(\s+)/), keep = end ? w.slice(0, n * 2) : w.slice(-n * 2), cut = keep.length < w.length, j = keep.join('');
+      return !cut ? j : end ? j.replace(/\s+$/, '') + ' …' : '… ' + j.replace(/^\s+/, ''); };
+    const before = sent.length > 200 ? words(sent.slice(0, k), 12, false) : sent.slice(0, k);
+    const after = sent.length > 200 ? words(sent.slice(k + m.quote.length), 12, true) : sent.slice(k + m.quote.length);
+    const wrong = before + m.quote + after, right = before + m.answer + after;
+    return { wrong, right, rule: m.rule || '', examples: m.examples || [], practice: m.practice || [], explain: m.hint || '' };
+  }
+  const PRACTICE_GAP = [1, 3, 7];  /* days until the next try, by right answers in a row; the third right answer retires it */
+  /* An error made again (or newly taught) goes back into practice tomorrow. */
+  function attachLesson(row, l, today) {
+    const r = JSON.parse(JSON.stringify(row)), old = r.lesson || {};
+    if (l && l.wrong && l.right) r.lesson = { wrong: l.wrong, right: l.right, rule: l.rule || old.rule || '', explain: l.explain || old.explain || '',
+      examples: l.examples && l.examples.length ? l.examples : old.examples || [], practice: l.practice && l.practice.length ? l.practice : old.practice || [] };
+    if (r.lesson) r.drill = { n: (r.drill && r.drill.n) || 0, streak: 0, due: addDays(today, PRACTICE_GAP[0]), learned: false };
+    return r;
+  }
+  const practiceItems = row => row.lesson ? [{ wrong: row.lesson.wrong, right: row.lesson.right }].concat(row.lesson.practice || []) : [];
+  function practiceItem(row) { const it = practiceItems(row); return it.length ? it[((row.drill && row.drill.n) || 0) % it.length] : null; }
+  function practiceDue(errors, today) {
+    return errors.filter(e => e.lesson && e.drill && !e.drill.learned && e.drill.due <= today)
+      .sort((a, b) => a.drill.due.localeCompare(b.drill.due) || a.id.localeCompare(b.id));
+  }
+  function nextPracticeDate(errors) {
+    const d = errors.filter(e => e.lesson && e.drill && !e.drill.learned).map(e => e.drill.due).sort();
+    return d[0] || '';
+  }
+  function gradePractice(row, ok, today) {
+    const r = JSON.parse(JSON.stringify(row)), d = r.drill;
+    d.n = (d.n || 0) + 1; d.last = today;
+    if (ok) { d.streak = (d.streak || 0) + 1; if (d.streak >= PRACTICE_GAP.length) { d.learned = true; d.learnedOn = today; } else d.due = addDays(today, PRACTICE_GAP[d.streak]); }
+    else { d.streak = 0; d.due = addDays(today, PRACTICE_GAP[0]); }
+    return r;
+  }
+
   const clip = (s, n) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
-  function validateMarks(raw, text, types) {
+  function validateMarks(raw, text, types, tutor) {
     if (!Array.isArray(raw)) return [];
     const used = new Set(), out = [];
     for (const m of raw.slice(0, 20)) {
@@ -364,7 +434,8 @@ const L = (() => {
       while (at >= 0 && used.has(at)) at = text.indexOf(m.quote, at + 1);
       if (at < 0) continue;
       used.add(at);
-      out.push({ quote: m.quote, at, type: types.includes(m.type) ? m.type : 'Other', hint: clip(m.hint, 300), by: 'claude', fixed: false, fix: '', tries: 0, note: clip(m.note, 300), errId: '' });
+      const mk = { quote: m.quote, at, type: types.includes(m.type) ? m.type : 'Other', hint: clip(m.hint, 300), by: 'claude', fixed: false, fix: '', tries: 0, note: clip(m.note, 300), errId: '' };
+      out.push(tutor ? Object.assign(mk, lessonFields(m, m.quote)) : mk);
     }
     return out.sort((a, b) => a.at - b.at);
   }
@@ -381,19 +452,22 @@ const L = (() => {
     return { ok: raw.ok === true, hint: clip(raw.hint, 300) };
   }
   /* Outside the Claude viewer: the same prompt is copied to a Claude chat and the reply pasted back. */
-  function parsePastedMarks(pasted, text, types) {
+  function parsePastedMarks(pasted, text, types, tutor) {
     const s = pasted || '', a = s.indexOf('['), b = s.lastIndexOf(']');
     if (a < 0 || b <= a) return null;
-    try { return validateMarks(JSON.parse(s.slice(a, b + 1)), text, types); } catch (e) { return null; }
+    try { return validateMarks(JSON.parse(s.slice(a, b + 1)), text, types, tutor); } catch (e) { return null; }
   }
 
   /* ---------- Phase 0 tests and the imitation drill: prompts and reply checks ---------- */
   const NO_FIX = 'Never write the corrected sentence or any replacement words anywhere in your reply.';
-  function testMarkPrompt(sentences, answers, types) {
+  function testMarkPrompt(sentences, answers, types, tutor) {
     return 'You are marking a grammar test for an adult rebuilding their English. Each original sentence below has one or more errors; the learner rewrote it to correct it.\n' +
       'For each item decide whether the learner\'s version is fully correct, natural English that keeps the meaning. A "?" in the answer means the learner was unsure; ignore the "?" itself.\n' +
-      NO_FIX + ' If an item is wrong, name the error type (one of: ' + types.join('; ') + ') and give one short hint question that points at the problem without giving the fix.\n' +
-      'Reply with only a JSON array of ' + sentences.length + ' objects in order: [{"n":1,"ok":true,"type":"","hint":""}, ...].\n\n' +
+      (tutor
+        ? 'If an item is wrong, name the error type (one of: ' + types.join('; ') + '), say in one plain sentence what is wrong ("hint"), give the fully corrected sentence ("right"), and give the rule in at most two plain sentences ("rule").\n' +
+          'Reply with only a JSON array of ' + sentences.length + ' objects in order: [{"n":1,"ok":true,"type":"","hint":"","right":"","rule":""}, ...].\n\n'
+        : NO_FIX + ' If an item is wrong, name the error type (one of: ' + types.join('; ') + ') and give one short hint question that points at the problem without giving the fix.\n' +
+          'Reply with only a JSON array of ' + sentences.length + ' objects in order: [{"n":1,"ok":true,"type":"","hint":""}, ...].\n\n') +
       sentences.map((t, i) => (i + 1) + '. Original: ' + t + '\n   Learner: ' + (answers[i] || '(blank)')).join('\n');
   }
   function validateTestMarks(raw, count, types) {
@@ -402,7 +476,8 @@ const L = (() => {
     for (let i = 0; i < count; i++) {
       const r = raw.find(x => x && Number(x.n) === i + 1) || raw[i];
       if (!r || typeof r.ok !== 'boolean') return null;
-      out.push({ n: i + 1, ok: r.ok, type: r.ok ? '' : (types.includes(r.type) ? r.type : 'Other'), hint: r.ok ? '' : clip(r.hint, 300) });
+      out.push({ n: i + 1, ok: r.ok, type: r.ok ? '' : (types.includes(r.type) ? r.type : 'Other'), hint: r.ok ? '' : clip(r.hint, 300),
+        right: r.ok ? '' : clip(r.right, 300), rule: r.ok ? '' : clip(r.rule, 400) });
     }
     return out;
   }
@@ -475,7 +550,7 @@ const L = (() => {
   return { iso, addDays, dow, daysBetween, weekStartOf, weekIndex, isWeekend, inWeek, countWords, splitSentences, sentenceReport, sentenceAround,
     FLOWS, flowFor, mainText, sprintClean, sprintPasses, nextModel, shuffleOrder, pendingNotes, nextAction, stagesFor, pieceTarget, readers,
     stageBlockers, advancePiece, norm, errorId, logError, errorTypeCounts, computeTop3, drillTargets, top3Rate, evaluateGates,
-    reviewsThisWeek, reviewPrompt, validateMarks, repairPrompt, validateRepair, parsePastedMarks, weekRows, daysSinceLast,
+    reviewsThisWeek, reviewPrompt, validateMarks, tutorPrompt, sameText, lessonFromMark, attachLesson, practiceItems, practiceItem, practiceDue, nextPracticeDate, gradePractice, PRACTICE_GAP, repairPrompt, validateRepair, parsePastedMarks, weekRows, daysSinceLast,
     imitationSentences, hasImitation, flaggedAreas, testMarkPrompt, validateTestMarks, newTestPrompt, validateNewTest, breakdownPrompt, validateBreakdown,
     patternCheckPrompt, validatePatternCheck, parsePastedJson };
 })();

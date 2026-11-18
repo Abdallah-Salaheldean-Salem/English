@@ -331,4 +331,40 @@ t('import Unaided export and raw localStorage dump; merge is idempotent', () => 
   assert.throws(() => M.readBundle('nope'), /not JSON/);
 });
 
+t('tutor marks, lessons and practice schedule', () => {
+  const text = 'I goes to the lab. We need a examples for the report.';
+  const raw = [
+    { quote: 'I goes', type: 'Subject-verb agreement', answer: 'I go', explain: 'I does not take goes.', rule: 'With I, use go.', examples: ['I go home.', 'I work here.', 'extra'],
+      practice: [{ wrong: 'I runs fast.', right: 'I run fast.' }, { wrong: 'same', right: 'same' }, { wrong: 'He go.', right: 'He goes.' }] },
+    { quote: 'a examples', type: 'Article with a plural', answer: 'a examples' },
+    { quote: 'not in text', type: 'Spelling', answer: 'x' }];
+  const ms = L.validateMarks(raw, text, C.ERROR_TYPES, true);
+  assert.strictEqual(ms.length, 2);
+  assert.strictEqual(ms[0].answer, 'I go'); assert.strictEqual(ms[0].hint, 'I does not take goes.');
+  assert.strictEqual(ms[0].examples.length, 2); assert.deepStrictEqual(ms[0].practice.map(x => x.right), ['I run fast.', 'He goes.']);
+  assert.ok(!ms[1].answer, 'no lesson when the answer does not change anything');
+  assert.ok(!L.validateMarks(raw, text, C.ERROR_TYPES, false)[0].answer, 'marks mode never keeps answers');
+  const tp = L.tutorPrompt(text, [], C.ERROR_TYPES);
+  assert.ok(/English tutor/.test(tp) && tp.includes('Draft:\n"""\n' + text));
+  const l = L.lessonFromMark(text, ms[0]);
+  assert.strictEqual(l.wrong, 'I goes to the lab.'); assert.strictEqual(l.right, 'I go to the lab.');
+  assert.ok(L.sameText('I go to the lab', 'I go to the  lab.')); assert.ok(L.sameText('it’s', "it's")); assert.ok(!L.sameText('i go', 'I go')); assert.ok(!L.sameText('', ''));
+  let row = L.attachLesson(L.logError(null, { type: 'Subject-verb agreement', wrote: 'I goes', correct: 'I go', by: 'claude', date: '2026-11-18' }), l, '2026-11-18');
+  assert.strictEqual(row.drill.due, '2026-11-19');
+  assert.strictEqual(L.practiceDue([row], '2026-11-18').length, 0); assert.strictEqual(L.practiceDue([row], '2026-11-19').length, 1);
+  assert.strictEqual(L.practiceItems(row).length, 3); assert.strictEqual(L.practiceItem(row).wrong, 'I goes to the lab.');
+  row = L.gradePractice(row, true, '2026-11-19'); assert.strictEqual(row.drill.due, '2026-11-22'); assert.strictEqual(L.practiceItem(row).wrong, 'I runs fast.');
+  row = L.gradePractice(row, false, '2026-11-22'); assert.strictEqual(row.drill.streak, 0); assert.strictEqual(row.drill.due, '2026-11-23');
+  row = L.gradePractice(row, true, '2026-11-23'); row = L.gradePractice(row, true, '2026-11-26'); assert.strictEqual(row.drill.due, '2026-12-03');
+  row = L.gradePractice(row, true, '2026-12-03'); assert.ok(row.drill.learned); assert.strictEqual(L.practiceDue([row], '2027-01-01').length, 0);
+  assert.strictEqual(L.nextPracticeDate([row]), '');
+  row = L.attachLesson(row, { wrong: 'I goes now.', right: 'I go now.' }, '2026-12-10');
+  assert.ok(!row.drill.learned); assert.strictEqual(row.drill.due, '2026-12-11'); assert.strictEqual(row.lesson.practice.length, 2); assert.strictEqual(row.lesson.rule, 'With I, use go.');
+  const tm = L.validateTestMarks([{ n: 1, ok: false, type: 'Verb tense', hint: 'h', right: 'She works.', rule: 'r' }], 1, C.ERROR_TYPES);
+  assert.strictEqual(tm[0].right, 'She works.');
+  assert.ok(/fully corrected sentence/.test(L.testMarkPrompt(['She work.'], ['She work.'], C.ERROR_TYPES, true)));
+  assert.ok(/Never write the corrected/.test(L.testMarkPrompt(['She work.'], ['She work.'], C.ERROR_TYPES, false)));
+  assert.strictEqual(L.parsePastedMarks('ok ' + JSON.stringify(raw), text, C.ERROR_TYPES, true)[0].answer, 'I go');
+});
+
 console.log(n + ' test groups passed' + (process.exitCode ? ' (with failures above)' : ''));

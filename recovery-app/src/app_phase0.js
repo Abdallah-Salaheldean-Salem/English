@@ -50,8 +50,8 @@ function testMarkTask(sid) {
   const s = Store.get('sessions', sid);
   return claudeTask({
     key: 'mark-' + sid, label: 'Ask Claude to mark it', busyText: 'Claude is marking your test…',
-    intro: 'Claude marks each sentence right or wrong and names the error. It does not give the corrected sentence.',
-    prompt: () => L.testMarkPrompt(testSentences(s), s.data.answers || [], ERROR_TYPES),
+    intro: tutorOn() ? 'Claude marks each sentence right or wrong, then shows the correct sentence and the rule for each one you got wrong.' : 'Claude marks each sentence right or wrong and names the error. It does not give the corrected sentence.',
+    prompt: () => L.testMarkPrompt(testSentences(s), s.data.answers || [], ERROR_TYPES, tutorOn()),
     apply: raw => {
       const cur = Store.get('sessions', sid), sents = testSentences(cur);
       const items = L.validateTestMarks(raw, sents.length, ERROR_TYPES);
@@ -60,7 +60,8 @@ function testMarkTask(sid) {
       d.data.result = items; d.data.score = items.filter(i => i.ok).length;
       for (const i of items) if (!i.ok && (d.data.answers[i.n - 1] || '').trim()) {
         const wrote = d.data.answers[i.n - 1].replace(/\?\s*$/, '').trim();
-        const row = L.logError(Store.get('errors', L.errorId(i.type, wrote)), { type: i.type, wrote, correct: '', by: 'claude', date: L.iso() });
+        let row = L.logError(Store.get('errors', L.errorId(i.type, wrote)), { type: i.type, wrote, correct: i.right || '', by: 'claude', date: L.iso() });
+        if (i.right) row = L.attachLesson(row, { wrong: wrote, right: i.right, rule: i.rule, explain: i.hint }, L.iso());
         Store.put('errors', row.id, row, true);
       }
       Store.put('sessions', sid, d, true);
@@ -77,7 +78,8 @@ function testResult(s) {
   kids.push(h('ol', { class: 'testres' }, r.map(i => h('li', { class: i.ok ? 'ok' : 'no' },
     h('span', { class: 'mark', 'aria-label': i.ok ? 'right' : 'wrong' }, i.ok ? '✓' : '✗'),
     h('span', null, h('span', { class: 'muted small' }, sents[i.n - 1]), h('br'), (s.data.answers || [])[i.n - 1] || '(blank)',
-      i.ok ? '' : [h('br'), h('span', { class: 'tag' }, i.type), ' ', h('span', { class: 'hint' }, i.hint)])))));
+      i.ok ? '' : [h('br'), h('span', { class: 'tag' }, i.type), ' ', h('span', { class: 'hint' }, i.hint),
+        i.right ? [h('br'), h('span', { class: 'good' }, 'Correct: ' + i.right)] : '', i.rule ? h('span', { class: 'rule' }, i.rule) : ''])))));
   if (s.kind === 'placement') {
     const f = L.flaggedAreas(r, AREAS);
     kids.push(h('p', null, h('strong', null, 'Areas to study: '), f.length ? f.map(id => areaById(id).name).join(', ') : 'none. Every area was right.'));
@@ -89,12 +91,12 @@ function drillMarkTask(sid) {
   const s = Store.get('sessions', sid);
   const text = s.kind === 'placement' ? (s.data.partB || '') : L.mainText(s);
   if (!text.trim()) return '';
-  if (s.reviewedAt) return h('div', { class: 'review done' }, h('strong', null, 'Marked by Claude'), ': ' + plural((s.marks || []).filter(m => m.by === 'claude').length, 'problem') + '. Fix each one yourself in Writing.');
+  if (s.reviewedAt) return h('div', { class: 'review done' }, h('strong', null, 'Marked by Claude'), ': ' + plural((s.marks || []).filter(m => m.by === 'claude').length, 'problem') + (tutorOn() ? '. Open it in Writing to try each fix and see the rule.' : '. Fix each one yourself in Writing.'));
   return claudeTask({
     key: 'drill-' + sid, label: s.kind === 'placement' ? 'Ask Claude to mark Part B' : 'Ask Claude to mark your imitations', busyText: 'Claude is reading your sentences…',
     intro: s.kind === 'placement' ? 'Part B: Claude points at the errors in your 5 sentences. Each one goes into your error log.' : 'Claude marks your imitation sentences. Every error goes into your error log. This does not use your weekly review.',
-    prompt: () => L.reviewPrompt(text, currentTop3(), ERROR_TYPES),
-    apply: raw => { if (!Array.isArray(raw)) return 'Claude’s reply could not be read. Try again.'; applyReview('sessions', sid, L.validateMarks(raw, text, ERROR_TYPES), 'drill'); return null; }
+    prompt: () => reviewPromptFor(text),
+    apply: raw => { if (!Array.isArray(raw)) return 'Claude’s reply could not be read. Try again.'; applyReview('sessions', sid, marksFrom(raw, text), 'drill'); return null; }
   });
 }
 

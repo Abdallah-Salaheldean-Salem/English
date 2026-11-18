@@ -35,8 +35,12 @@ const checkIds = REVISION_CHECKS.map(c => c[0]);
 
 function defaultApp(today) {
   return { startDate: today, phase: 0, phaseStarted: { 0: today }, p0Offered: true, planRows2: true, weekStart: 0, restDays: [5, 6], anchorRoutine: '', anchorPlace: '',
-    noDelete: true, pauseLimit: 60, reviewsPerWeek: 1, sound: true, form: 'essay', publishPlace: '', top3: [], books: {} };
+    noDelete: true, pauseLimit: 60, reviewsPerWeek: 1, feedback: 'tutor', sound: true, form: 'essay', publishPlace: '', top3: [], books: {} };
 }
+/* Tutor (default): Claude shows the fix after one try and teaches the rule. Marks: Claude only points, the roadmap's original rule. */
+const tutorOn = () => ((app() && app().feedback) || 'tutor') === 'tutor';
+const reviewPromptFor = text => tutorOn() ? L.tutorPrompt(text, currentTop3(), ERROR_TYPES) : L.reviewPrompt(text, currentTop3(), ERROR_TYPES);
+const marksFrom = (raw, text) => L.validateMarks(raw, text, ERROR_TYPES, tutorOn());
 function saveApp(patch) { Store.put('state', 'app', Object.assign(clone(app()), patch)); }
 function currentTop3() { const a = app(); return a.phase >= 2 && a.top3 && a.top3.length ? a.top3 : L.computeTop3(errorsList()); }
 
@@ -177,10 +181,11 @@ const Engine = {
 
 /* ---------- marks and the error log ---------- */
 /* Self marks are logged once, when the session ends (or immediately outside a session). */
-function logMark(m) {
+function logMark(m, text) {
   if (m.errId || !m.type) return m;
   const id = L.errorId(m.type, m.quote);
-  const row = L.logError(Store.get('errors', id), { type: m.type, wrote: m.quote, correct: m.fix, by: m.by === 'self' ? 'self' : 'claude', date: L.iso() });
+  let row = L.logError(Store.get('errors', id), { type: m.type, wrote: m.quote, correct: m.answer || m.fix, by: m.by === 'self' ? 'self' : 'claude', date: L.iso() });
+  if (m.answer && text != null) row = L.attachLesson(row, L.lessonFromMark(text, m), L.iso());
   Store.put('errors', row.id, row, true);
   m.errId = row.id;
   return m;
@@ -214,22 +219,22 @@ const SAMPLE_MSG = {
   prompt_too_large: 'This text is too long to review in one go.'
 };
 const sampleError = e => SAMPLE_MSG[e && e.code] || 'Claude could not be reached. Try again in a moment.';
-function reviewsLeft() { const a = app(); return Math.max(0, (a.reviewsPerWeek || 1) - L.reviewsThisWeek(a, sessions(), pieces(), L.iso())); }
+function reviewsLeft() { if (tutorOn()) return Infinity; const a = app(); return Math.max(0, (a.reviewsPerWeek || 1) - L.reviewsThisWeek(a, sessions(), pieces(), L.iso())); }
 
 async function claudeReview(coll, id) {
   const doc = Store.get(coll, id); const text = targetText(coll, doc);
   if (!App.sample || !text.trim() || doc.reviewedAt) return;
   App.busy[id] = 'Claude is reading your draft…'; render();
   try {
-    const raw = await App.sample.json(L.reviewPrompt(text, currentTop3(), ERROR_TYPES), { cache: false });
-    applyReview(coll, id, L.validateMarks(raw, text, ERROR_TYPES), 'claude');
+    const raw = await App.sample.json(reviewPromptFor(text), { cache: false });
+    applyReview(coll, id, marksFrom(raw, text), 'claude');
     App.notice = '';
   } catch (e) { App.notice = sampleError(e); if (e && e.code === 'not_granted') App.sample = null; }
   delete App.busy[id]; render();
 }
 function applyReview(coll, id, marks, mode) {
-  const d = clone(Store.get(coll, id));
-  d.marks = (d.marks || []).filter(m => m.by !== 'claude').concat(marks.map(m => logMark(m)));
+  const d = clone(Store.get(coll, id)), text = targetText(coll, d);
+  d.marks = (d.marks || []).filter(m => m.by !== 'claude').concat(marks.map(m => logMark(m, text)));
   d.reviewed = true; d.reviewedAt = nowIso(); d.reviewMode = mode; d.reviewedWords = L.countWords(targetText(coll, d));
   Store.put(coll, id, d);
 }
@@ -245,4 +250,23 @@ async function claudeRepair(coll, id, idx, fix) {
     else { const d = clone(Store.get(coll, id)); d.marks[idx].tries = (d.marks[idx].tries || 0) + 1; d.marks[idx].lastHint = r.hint || 'Not yet. Look at the marked words again.'; Store.put(coll, id, d); }
   } catch (e) { App.notice = sampleError(e); }
   delete App.busy[key]; render();
+}
+
+/* Tutor mode: one try at a fix (v), or v === null for "show me". Then the answer and the rule are shown. */
+async function tutorTry(coll, id, idx, v) {
+  const doc = Store.get(coll, id), m = doc && doc.marks[idx]; if (!m) return;
+  let ok = v != null && L.sameText(v, m.answer);
+  if (v != null && !ok && App.sample) {
+    const key = id + ':' + idx; App.busy[key] = 'Checking…'; refresh();
+    try { const r = L.validateRepair(await App.sample.json(L.repairPrompt(L.sentenceAround(targetText(coll, doc), m.at), m.quote, m.type, v), { cache: false })); ok = !!(r && r.ok); }
+    catch (e) { App.notice = sampleError(e); delete App.busy[key]; refresh(); return; }
+    delete App.busy[key];
+  }
+  const d = clone(Store.get(coll, id)), mk = d.marks[idx];
+  Object.assign(mk, { shown: true, tried: v || '', firstTry: v != null && ok, fixed: true, fix: v != null && ok ? v : mk.answer, lastHint: '' });
+  Store.put(coll, id, d);
+}
+function tutorCountRight(coll, id, idx) {
+  const d = clone(Store.get(coll, id)), mk = d.marks[idx]; if (!mk || !mk.tried) return;
+  mk.firstTry = true; mk.fix = mk.tried; Store.put(coll, id, d);
 }
