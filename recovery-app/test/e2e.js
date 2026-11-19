@@ -30,7 +30,7 @@ const MOCK = `(() => {
     if (prompt.startsWith('A learner wrote')) return prompt.includes('with: "I go"') ? { ok: true, hint: '' } : { ok: false, hint: 'Who is doing the action?' };
     const m = prompt.match(/"""\\n([\\s\\S]*)\\n"""/); const text = m ? m[1] : '';
     const q = text.includes('I goes') ? 'I goes' : text.split(' ').slice(0, 2).join(' ');
-    return [{ quote: q, type: 'Subject-verb agreement', hint: 'Who is the subject?', note: 'The verb agrees with its subject.' }, { quote: 'not in the text', type: 'Spelling' }];
+    return [{ quote: q, type: 'Subject-verb agreement', hint: 'Who is the subject?', note: 'The verb agrees with its subject.', answer: 'I go', explain: 'I does not take goes.', rule: 'With I, use go.', examples: ['I go home.', 'I work here.'], practice: [{ wrong: 'I runs fast.', right: 'I run fast.' }, { wrong: 'I has a board.', right: 'I have a board.' }] }, { quote: 'not in the text', type: 'Spelling' }];
   };
   window.claude = { use: async n => n === 'db' ? db : n === 'sample' ? sample : n === 'downloads' ? { save: async () => 'saved' } : null };
 })();`;
@@ -88,7 +88,7 @@ async function run(mode) {
       let reply;
       if (promptStart === 'review') {
         const t = await page.evaluate(() => { const s = Store.list('sessions').filter(x => x.status === 'done').pop(); return L.mainText(s); });
-        reply = JSON.stringify([{ quote: t.split(' ').slice(0, 2).join(' '), type: 'Verb tense', hint: 'When?', note: 'n' }]);
+        reply = JSON.stringify([{ quote: t.split(' ').slice(0, 2).join(' '), type: 'Verb tense', hint: 'When?', note: 'n', answer: 'I go', explain: 'I does not take goes.', rule: 'With I, use go.', examples: ['I go home.', 'I work here.'], practice: [{ wrong: 'I runs fast.', right: 'I run fast.' }, { wrong: 'I has a board.', right: 'I have a board.' }] }]);
       } else if (promptStart === 'bd') reply = 'Here:\n' + JSON.stringify(phase0Answer(prompts.bd + ' x\n\nText:\n"""\n' + ARTICLE + '\n"""'));
       else reply = JSON.stringify(phase0Answer(prompts[promptStart] + (promptStart === 'mark' && label === 'placement' ? ' She work in a lab every day.' : '')));
       await scope.getByLabel('Claude reply').first().fill(reply); await scope.getByRole('button', { name: 'Use the reply' }).first().click(); await tick();
@@ -187,27 +187,28 @@ async function run(mode) {
     assert.ok(await has('Copy review request'), 'paste flow offered');
     const body = await page.evaluate(() => Store.list('sessions').find(s => s.kind === 'phase1').data.text);
     const q = body.split(' ').slice(1, 3).join(' ');
-    await page.getByLabel('Claude reply').fill('Sure:\n[{"quote":"' + q + '","type":"Verb tense","hint":"When did it happen?","note":"Keep one tense."}]');
+    await page.getByLabel('Claude reply').fill('Sure:\n[{"quote":"' + q + '","type":"Verb tense","explain":"When did it happen?","answer":"fixed words","rule":"Keep one tense.","examples":["I went home."],"practice":[{"wrong":"I go yesterday.","right":"I went yesterday."}]}]');
     await btn('Add the marks');
     assert.ok(await has('Marked by Claude'), 'pasted review applied');
   } else {
     await btn('Ask Claude to mark it'); await tick(800);
     assert.ok(await has('Marked by Claude'), 'claude review applied');
     const prompts = await page.evaluate(() => window.__prompts);
-    if (!served) assert.ok(/Never rewrite/.test(prompts[prompts.length - 1]));
+    if (!served) assert.ok(/English tutor/.test(prompts[prompts.length - 1]), 'tutor prompt by default');
   }
   await btn('Open in Writing');
   assert.ok(await has('Marks'), 'marks panel');
   await shot('writing');
-  /* repair one mark */
+  /* tutor mode: one try at a mark, then the answer and the rule */
   const fixBox = page.getByLabel('Your fix for mark 4');
+  const checkBtn = fixBox.locator('xpath=..').getByRole('button', { name: 'Check', exact: true });
   if (mode !== 'local') {
-    await fixBox.fill('it go'); await btn('Check my fix'); await tick(600);
-    assert.ok(await has('Not yet'), 'wrong fix gets a hint');
-    await page.getByLabel('Your fix for mark 4').fill('I go'); await btn('Check my fix'); await tick(600);
-    // mock accepts fixes containing "go" in quotes
-  } else { await fixBox.fill('fixed words'); await fixBox.locator('xpath=..').getByRole('button').click(); await tick(); }
-  assert.ok(await has('Fixed:'), 'mark fixed');
+    await fixBox.fill('it go'); await checkBtn.click(); await tick(600);
+    assert.ok(await has('Your try') && await has('Correct:') && await has('Rule:') && await has('I go home.'), 'one try, then the answer, rule and examples');
+    await btn('Mine means the same'); assert.ok(await has('✓ Right'), 'counted right');
+  } else { await fixBox.fill('fixed words'); await checkBtn.click(); await tick(); assert.ok(await has('✓ Right'), 'local match counts right'); }
+  assert.ok(await has('comes back in Fix-it practice'), 'lesson shown');
+  await shot('tutor');
 
   /* error log */
   await click('#nav a[href="#errors"]');
@@ -254,6 +255,18 @@ async function run(mode) {
   await page.clock.fastForward(24 * 3600 * 1000); await tick(1000);
   await page.reload(); await tick(800);
   assert.ok(await has('Rebuild from your notes'), 'rebuild ready next day');
+  /* Fix-it practice: yesterday's mistakes come back */
+  assert.ok(await has('Fix-it practice') && await has('to fix today'), 'practice due next day');
+  await btn('Start practice');
+  for (let g = 0; g < 12 && !(await page.locator('.card .lead').count()); g++) {
+    if (g === 0) { await page.getByLabel('Your corrected sentence', { exact: true }).fill('wrong on purpose'); await btn('Check'); assert.ok(await has('Your try') && await has('Correct:'), 'practice shows the answer'); await shot('practice'); }
+    else await btn('Show me');
+    await page.getByRole('button', { name: /^(Next|Finish)$/ }).click(); await tick();
+  }
+  assert.ok(await has('0 of') && await has('right.'), 'practice finished');
+  const due = await page.evaluate(() => Object.values(Store.list('errors')).filter(e => e.drill).map(e => e.drill.due));
+  assert.ok(due.length && due.every(d => d > '2026-11-05'), 'missed items move to tomorrow: ' + due);
+  await btn('Back to Today');
   await startMain();
   await page.locator('#rebuild').click(); await page.keyboard.type(WORDS.join(' ') + '. ' + WORDS.slice(0, 10).join(' ') + '.');
   await next();

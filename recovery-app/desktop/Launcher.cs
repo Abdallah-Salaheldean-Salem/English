@@ -313,7 +313,7 @@ static class Program
         string key = ReadKey();
         if (key == null) { Text(c, 412, "not_granted"); return; }
         string prompt = Body(c, 250000);
-        string req = "{\"model\":" + JsonString(Model) + ",\"max_tokens\":4000,\"messages\":[{\"role\":\"user\",\"content\":" + JsonString(prompt) + "}]}";
+        string req = "{\"model\":" + JsonString(Model) + ",\"max_tokens\":8000,\"messages\":[{\"role\":\"user\",\"content\":" + JsonString(prompt) + "}]}";
         HttpWebRequest w = (HttpWebRequest)WebRequest.Create(Api);
         w.Method = "POST";
         w.ContentType = "application/json";

@@ -319,6 +319,15 @@ body.in-focus { overflow: hidden; }
 .imit ul { margin: 0; padding-left: 18px; font-family: var(--f-write); }
 .areas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
+/* Tutor mode and Fix-it practice */
+.lesson { margin-top: 8px; padding: 10px 12px; border-left: 3px solid var(--green); background: var(--green-soft); border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 6px; }
+.lesson p { margin: 0; } .lesson .right { font: 15px/1.5 var(--f-write); }
+.lesson .warn { color: var(--red); } .lesson .ex { margin: 0; padding-left: 20px; font: 14px/1.5 var(--f-write); color: var(--ink2); }
+.rule { display: block; font-size: 14px; }
+.ctx.big { font: 17px/1.55 var(--f-write); }
+.practice-item textarea { width: 100%; font: 16px/1.5 var(--f-write); }
+.tbl.errors td.pr { white-space: nowrap; font-size: 13px; }
+
 </style>
 <div id="shell">
   <aside class="rail">
@@ -973,8 +982,78 @@ const L = (() => {
       'Reply with only a JSON array such as [{"quote":"a examples","type":"Article with a plural","hint":"Can a or an go before a plural noun?","note":"A and an go only before singular countable nouns, as in a cat but cats."}]. Reply [] if there are no problems.\n\n' +
       'Draft:\n"""\n' + text + '\n"""';
   }
+  /* Tutor mode: the learner does not know the rules yet, so Claude gives the fix (shown after one try), the rule, examples and practice sentences. */
+  function tutorPrompt(text, top3, types) {
+    return 'You are an English tutor. The draft below was written by an adult engineer who is rebuilding their English and does not know the grammar rules yet, so teach them.\n' +
+      'For each problem give:\n' +
+      '- "quote": copied exactly, character for character, from the draft: the shortest span that contains the problem, at most 12 words. If the fix only removes words, include a neighbouring word so "answer" is never empty.\n' +
+      '- "type": exactly one of: ' + types.join('; ') + '.\n' +
+      '- "answer": the corrected words that replace "quote", so the sentence becomes correct, natural English. Change as little as possible.\n' +
+      '- "explain": what is wrong in this sentence, in one plain sentence without grammar jargon. Do not give the answer in it: the learner tries to fix it first.\n' +
+      '- "rule": the general rule in at most three short, plain sentences.\n' +
+      '- "examples": two short correct sentences that follow the rule, not taken from the draft.\n' +
+      '- "practice": two new short sentences that contain the same kind of mistake, each with its corrected version, about work, a university lab, electronics or daily life.\n' +
+      'Grammar, spelling, punctuation and usage only; ignore style. At most 10 marks, most important first.\n' +
+      (top3 && top3.length ? '- The writer is working on: ' + top3.join(', ') + '. Mark every instance of these.\n' : '') +
+      'Reply with only a JSON array such as [{"quote":"a examples","type":"Article with a plural","answer":"examples","explain":"A means one, but examples means more than one.",' +
+      '"rule":"Use a or an only before one countable thing. Before plurals, use no article, some, or the.","examples":["I need an adapter.","We bought new resistors."],' +
+      '"practice":[{"wrong":"She ordered a sensors for the lab.","right":"She ordered sensors for the lab."},{"wrong":"He fixed a printers today.","right":"He fixed the printers today."}]}]. Reply [] if there are no problems.\n\n' +
+      'Draft:\n"""\n' + text + '\n"""';
+  }
+  /* Loose comparison for a learner's fix: spacing, curly quotes and final punctuation do not matter; letters and case do. */
+  const loose = s => (s || '').replace(/[\u2018\u2019`]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\s+/g, ' ').replace(/\s+([.,;:!?])/g, '$1').replace(/[.!?]+$/, '').trim();
+  const sameText = (a, b) => loose(a) === loose(b) && loose(a) !== '';
+  function lessonFields(m, quote) {
+    let answer = typeof m.answer === 'string' ? m.answer.trim().slice(0, 240) : '';
+    if (loose(answer) === loose(quote)) answer = '';
+    if (!answer) return {};
+    const examples = (Array.isArray(m.examples) ? m.examples : []).filter(x => typeof x === 'string' && x.trim()).slice(0, 2).map(x => clip(x, 200));
+    const practice = (Array.isArray(m.practice) ? m.practice : [])
+      .filter(x => x && typeof x.wrong === 'string' && typeof x.right === 'string' && x.wrong.trim() && x.right.trim() && loose(x.wrong) !== loose(x.right))
+      .slice(0, 2).map(x => ({ wrong: clip(x.wrong, 240), right: clip(x.right, 240) }));
+    return { answer, hint: clip(m.explain, 300) || clip(m.hint, 300), rule: clip(m.rule, 400), examples, practice, shown: false, tried: '', firstTry: null };
+  }
+  /* The sentence the mark sits in, before and after the fix. */
+  function lessonFromMark(text, m) {
+    const sent = sentenceAround(text, m.at) || m.quote, k = sent.indexOf(m.quote);
+    if (k < 0) return { wrong: m.quote, right: m.answer, rule: m.rule || '', examples: m.examples || [], practice: m.practice || [], explain: m.hint || '' };
+    /* A run-on sentence is cut to about 12 words on each side of the mistake. */
+    const words = (s, n, end) => { const w = s.split(/(\s+)/), keep = end ? w.slice(0, n * 2) : w.slice(-n * 2), cut = keep.length < w.length, j = keep.join('');
+      return !cut ? j : end ? j.replace(/\s+$/, '') + ' …' : '… ' + j.replace(/^\s+/, ''); };
+    const before = sent.length > 200 ? words(sent.slice(0, k), 12, false) : sent.slice(0, k);
+    const after = sent.length > 200 ? words(sent.slice(k + m.quote.length), 12, true) : sent.slice(k + m.quote.length);
+    const wrong = before + m.quote + after, right = before + m.answer + after;
+    return { wrong, right, rule: m.rule || '', examples: m.examples || [], practice: m.practice || [], explain: m.hint || '' };
+  }
+  const PRACTICE_GAP = [1, 3, 7];  /* days until the next try, by right answers in a row; the third right answer retires it */
+  /* An error made again (or newly taught) goes back into practice tomorrow. */
+  function attachLesson(row, l, today) {
+    const r = JSON.parse(JSON.stringify(row)), old = r.lesson || {};
+    if (l && l.wrong && l.right) r.lesson = { wrong: l.wrong, right: l.right, rule: l.rule || old.rule || '', explain: l.explain || old.explain || '',
+      examples: l.examples && l.examples.length ? l.examples : old.examples || [], practice: l.practice && l.practice.length ? l.practice : old.practice || [] };
+    if (r.lesson) r.drill = { n: (r.drill && r.drill.n) || 0, streak: 0, due: addDays(today, PRACTICE_GAP[0]), learned: false };
+    return r;
+  }
+  const practiceItems = row => row.lesson ? [{ wrong: row.lesson.wrong, right: row.lesson.right }].concat(row.lesson.practice || []) : [];
+  function practiceItem(row) { const it = practiceItems(row); return it.length ? it[((row.drill && row.drill.n) || 0) % it.length] : null; }
+  function practiceDue(errors, today) {
+    return errors.filter(e => e.lesson && e.drill && !e.drill.learned && e.drill.due <= today)
+      .sort((a, b) => a.drill.due.localeCompare(b.drill.due) || a.id.localeCompare(b.id));
+  }
+  function nextPracticeDate(errors) {
+    const d = errors.filter(e => e.lesson && e.drill && !e.drill.learned).map(e => e.drill.due).sort();
+    return d[0] || '';
+  }
+  function gradePractice(row, ok, today) {
+    const r = JSON.parse(JSON.stringify(row)), d = r.drill;
+    d.n = (d.n || 0) + 1; d.last = today;
+    if (ok) { d.streak = (d.streak || 0) + 1; if (d.streak >= PRACTICE_GAP.length) { d.learned = true; d.learnedOn = today; } else d.due = addDays(today, PRACTICE_GAP[d.streak]); }
+    else { d.streak = 0; d.due = addDays(today, PRACTICE_GAP[0]); }
+    return r;
+  }
+
   const clip = (s, n) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
-  function validateMarks(raw, text, types) {
+  function validateMarks(raw, text, types, tutor) {
     if (!Array.isArray(raw)) return [];
     const used = new Set(), out = [];
     for (const m of raw.slice(0, 20)) {
@@ -983,7 +1062,8 @@ const L = (() => {
       while (at >= 0 && used.has(at)) at = text.indexOf(m.quote, at + 1);
       if (at < 0) continue;
       used.add(at);
-      out.push({ quote: m.quote, at, type: types.includes(m.type) ? m.type : 'Other', hint: clip(m.hint, 300), by: 'claude', fixed: false, fix: '', tries: 0, note: clip(m.note, 300), errId: '' });
+      const mk = { quote: m.quote, at, type: types.includes(m.type) ? m.type : 'Other', hint: clip(m.hint, 300), by: 'claude', fixed: false, fix: '', tries: 0, note: clip(m.note, 300), errId: '' };
+      out.push(tutor ? Object.assign(mk, lessonFields(m, m.quote)) : mk);
     }
     return out.sort((a, b) => a.at - b.at);
   }
@@ -1000,19 +1080,22 @@ const L = (() => {
     return { ok: raw.ok === true, hint: clip(raw.hint, 300) };
   }
   /* Outside the Claude viewer: the same prompt is copied to a Claude chat and the reply pasted back. */
-  function parsePastedMarks(pasted, text, types) {
+  function parsePastedMarks(pasted, text, types, tutor) {
     const s = pasted || '', a = s.indexOf('['), b = s.lastIndexOf(']');
     if (a < 0 || b <= a) return null;
-    try { return validateMarks(JSON.parse(s.slice(a, b + 1)), text, types); } catch (e) { return null; }
+    try { return validateMarks(JSON.parse(s.slice(a, b + 1)), text, types, tutor); } catch (e) { return null; }
   }
 
   /* ---------- Phase 0 tests and the imitation drill: prompts and reply checks ---------- */
   const NO_FIX = 'Never write the corrected sentence or any replacement words anywhere in your reply.';
-  function testMarkPrompt(sentences, answers, types) {
+  function testMarkPrompt(sentences, answers, types, tutor) {
     return 'You are marking a grammar test for an adult rebuilding their English. Each original sentence below has one or more errors; the learner rewrote it to correct it.\n' +
       'For each item decide whether the learner\'s version is fully correct, natural English that keeps the meaning. A "?" in the answer means the learner was unsure; ignore the "?" itself.\n' +
-      NO_FIX + ' If an item is wrong, name the error type (one of: ' + types.join('; ') + ') and give one short hint question that points at the problem without giving the fix.\n' +
-      'Reply with only a JSON array of ' + sentences.length + ' objects in order: [{"n":1,"ok":true,"type":"","hint":""}, ...].\n\n' +
+      (tutor
+        ? 'If an item is wrong, name the error type (one of: ' + types.join('; ') + '), say in one plain sentence what is wrong ("hint"), give the fully corrected sentence ("right"), and give the rule in at most two plain sentences ("rule").\n' +
+          'Reply with only a JSON array of ' + sentences.length + ' objects in order: [{"n":1,"ok":true,"type":"","hint":"","right":"","rule":""}, ...].\n\n'
+        : NO_FIX + ' If an item is wrong, name the error type (one of: ' + types.join('; ') + ') and give one short hint question that points at the problem without giving the fix.\n' +
+          'Reply with only a JSON array of ' + sentences.length + ' objects in order: [{"n":1,"ok":true,"type":"","hint":""}, ...].\n\n') +
       sentences.map((t, i) => (i + 1) + '. Original: ' + t + '\n   Learner: ' + (answers[i] || '(blank)')).join('\n');
   }
   function validateTestMarks(raw, count, types) {
@@ -1021,7 +1104,8 @@ const L = (() => {
     for (let i = 0; i < count; i++) {
       const r = raw.find(x => x && Number(x.n) === i + 1) || raw[i];
       if (!r || typeof r.ok !== 'boolean') return null;
-      out.push({ n: i + 1, ok: r.ok, type: r.ok ? '' : (types.includes(r.type) ? r.type : 'Other'), hint: r.ok ? '' : clip(r.hint, 300) });
+      out.push({ n: i + 1, ok: r.ok, type: r.ok ? '' : (types.includes(r.type) ? r.type : 'Other'), hint: r.ok ? '' : clip(r.hint, 300),
+        right: r.ok ? '' : clip(r.right, 300), rule: r.ok ? '' : clip(r.rule, 400) });
     }
     return out;
   }
@@ -1094,7 +1178,7 @@ const L = (() => {
   return { iso, addDays, dow, daysBetween, weekStartOf, weekIndex, isWeekend, inWeek, countWords, splitSentences, sentenceReport, sentenceAround,
     FLOWS, flowFor, mainText, sprintClean, sprintPasses, nextModel, shuffleOrder, pendingNotes, nextAction, stagesFor, pieceTarget, readers,
     stageBlockers, advancePiece, norm, errorId, logError, errorTypeCounts, computeTop3, drillTargets, top3Rate, evaluateGates,
-    reviewsThisWeek, reviewPrompt, validateMarks, repairPrompt, validateRepair, parsePastedMarks, weekRows, daysSinceLast,
+    reviewsThisWeek, reviewPrompt, validateMarks, tutorPrompt, sameText, lessonFromMark, attachLesson, practiceItems, practiceItem, practiceDue, nextPracticeDate, gradePractice, PRACTICE_GAP, repairPrompt, validateRepair, parsePastedMarks, weekRows, daysSinceLast,
     imitationSentences, hasImitation, flaggedAreas, testMarkPrompt, validateTestMarks, newTestPrompt, validateNewTest, breakdownPrompt, validateBreakdown,
     patternCheckPrompt, validatePatternCheck, parsePastedJson };
 })();
@@ -1426,8 +1510,12 @@ const checkIds = REVISION_CHECKS.map(c => c[0]);
 
 function defaultApp(today) {
   return { startDate: today, phase: 0, phaseStarted: { 0: today }, p0Offered: true, planRows2: true, weekStart: 0, restDays: [5, 6], anchorRoutine: '', anchorPlace: '',
-    noDelete: true, pauseLimit: 60, reviewsPerWeek: 1, sound: true, form: 'essay', publishPlace: '', top3: [], books: {} };
+    noDelete: true, pauseLimit: 60, reviewsPerWeek: 1, feedback: 'tutor', sound: true, form: 'essay', publishPlace: '', top3: [], books: {} };
 }
+/* Tutor (default): Claude shows the fix after one try and teaches the rule. Marks: Claude only points, the roadmap's original rule. */
+const tutorOn = () => ((app() && app().feedback) || 'tutor') === 'tutor';
+const reviewPromptFor = text => tutorOn() ? L.tutorPrompt(text, currentTop3(), ERROR_TYPES) : L.reviewPrompt(text, currentTop3(), ERROR_TYPES);
+const marksFrom = (raw, text) => L.validateMarks(raw, text, ERROR_TYPES, tutorOn());
 function saveApp(patch) { Store.put('state', 'app', Object.assign(clone(app()), patch)); }
 function currentTop3() { const a = app(); return a.phase >= 2 && a.top3 && a.top3.length ? a.top3 : L.computeTop3(errorsList()); }
 
@@ -1568,10 +1656,11 @@ const Engine = {
 
 /* ---------- marks and the error log ---------- */
 /* Self marks are logged once, when the session ends (or immediately outside a session). */
-function logMark(m) {
+function logMark(m, text) {
   if (m.errId || !m.type) return m;
   const id = L.errorId(m.type, m.quote);
-  const row = L.logError(Store.get('errors', id), { type: m.type, wrote: m.quote, correct: m.fix, by: m.by === 'self' ? 'self' : 'claude', date: L.iso() });
+  let row = L.logError(Store.get('errors', id), { type: m.type, wrote: m.quote, correct: m.answer || m.fix, by: m.by === 'self' ? 'self' : 'claude', date: L.iso() });
+  if (m.answer && text != null) row = L.attachLesson(row, L.lessonFromMark(text, m), L.iso());
   Store.put('errors', row.id, row, true);
   m.errId = row.id;
   return m;
@@ -1605,22 +1694,22 @@ const SAMPLE_MSG = {
   prompt_too_large: 'This text is too long to review in one go.'
 };
 const sampleError = e => SAMPLE_MSG[e && e.code] || 'Claude could not be reached. Try again in a moment.';
-function reviewsLeft() { const a = app(); return Math.max(0, (a.reviewsPerWeek || 1) - L.reviewsThisWeek(a, sessions(), pieces(), L.iso())); }
+function reviewsLeft() { if (tutorOn()) return Infinity; const a = app(); return Math.max(0, (a.reviewsPerWeek || 1) - L.reviewsThisWeek(a, sessions(), pieces(), L.iso())); }
 
 async function claudeReview(coll, id) {
   const doc = Store.get(coll, id); const text = targetText(coll, doc);
   if (!App.sample || !text.trim() || doc.reviewedAt) return;
   App.busy[id] = 'Claude is reading your draft…'; render();
   try {
-    const raw = await App.sample.json(L.reviewPrompt(text, currentTop3(), ERROR_TYPES), { cache: false });
-    applyReview(coll, id, L.validateMarks(raw, text, ERROR_TYPES), 'claude');
+    const raw = await App.sample.json(reviewPromptFor(text), { cache: false });
+    applyReview(coll, id, marksFrom(raw, text), 'claude');
     App.notice = '';
   } catch (e) { App.notice = sampleError(e); if (e && e.code === 'not_granted') App.sample = null; }
   delete App.busy[id]; render();
 }
 function applyReview(coll, id, marks, mode) {
-  const d = clone(Store.get(coll, id));
-  d.marks = (d.marks || []).filter(m => m.by !== 'claude').concat(marks.map(m => logMark(m)));
+  const d = clone(Store.get(coll, id)), text = targetText(coll, d);
+  d.marks = (d.marks || []).filter(m => m.by !== 'claude').concat(marks.map(m => logMark(m, text)));
   d.reviewed = true; d.reviewedAt = nowIso(); d.reviewMode = mode; d.reviewedWords = L.countWords(targetText(coll, d));
   Store.put(coll, id, d);
 }
@@ -1636,6 +1725,25 @@ async function claudeRepair(coll, id, idx, fix) {
     else { const d = clone(Store.get(coll, id)); d.marks[idx].tries = (d.marks[idx].tries || 0) + 1; d.marks[idx].lastHint = r.hint || 'Not yet. Look at the marked words again.'; Store.put(coll, id, d); }
   } catch (e) { App.notice = sampleError(e); }
   delete App.busy[key]; render();
+}
+
+/* Tutor mode: one try at a fix (v), or v === null for "show me". Then the answer and the rule are shown. */
+async function tutorTry(coll, id, idx, v) {
+  const doc = Store.get(coll, id), m = doc && doc.marks[idx]; if (!m) return;
+  let ok = v != null && L.sameText(v, m.answer);
+  if (v != null && !ok && App.sample) {
+    const key = id + ':' + idx; App.busy[key] = 'Checking…'; refresh();
+    try { const r = L.validateRepair(await App.sample.json(L.repairPrompt(L.sentenceAround(targetText(coll, doc), m.at), m.quote, m.type, v), { cache: false })); ok = !!(r && r.ok); }
+    catch (e) { App.notice = sampleError(e); delete App.busy[key]; refresh(); return; }
+    delete App.busy[key];
+  }
+  const d = clone(Store.get(coll, id)), mk = d.marks[idx];
+  Object.assign(mk, { shown: true, tried: v || '', firstTry: v != null && ok, fixed: true, fix: v != null && ok ? v : mk.answer, lastHint: '' });
+  Store.put(coll, id, d);
+}
+function tutorCountRight(coll, id, idx) {
+  const d = clone(Store.get(coll, id)), mk = d.marks[idx]; if (!mk || !mk.tried) return;
+  mk.firstTry = true; mk.fix = mk.tried; Store.put(coll, id, d);
 }
 
 /* ==== src/app_focus.js ==== */
@@ -2047,8 +2155,8 @@ function testMarkTask(sid) {
   const s = Store.get('sessions', sid);
   return claudeTask({
     key: 'mark-' + sid, label: 'Ask Claude to mark it', busyText: 'Claude is marking your test…',
-    intro: 'Claude marks each sentence right or wrong and names the error. It does not give the corrected sentence.',
-    prompt: () => L.testMarkPrompt(testSentences(s), s.data.answers || [], ERROR_TYPES),
+    intro: tutorOn() ? 'Claude marks each sentence right or wrong, then shows the correct sentence and the rule for each one you got wrong.' : 'Claude marks each sentence right or wrong and names the error. It does not give the corrected sentence.',
+    prompt: () => L.testMarkPrompt(testSentences(s), s.data.answers || [], ERROR_TYPES, tutorOn()),
     apply: raw => {
       const cur = Store.get('sessions', sid), sents = testSentences(cur);
       const items = L.validateTestMarks(raw, sents.length, ERROR_TYPES);
@@ -2057,7 +2165,8 @@ function testMarkTask(sid) {
       d.data.result = items; d.data.score = items.filter(i => i.ok).length;
       for (const i of items) if (!i.ok && (d.data.answers[i.n - 1] || '').trim()) {
         const wrote = d.data.answers[i.n - 1].replace(/\?\s*$/, '').trim();
-        const row = L.logError(Store.get('errors', L.errorId(i.type, wrote)), { type: i.type, wrote, correct: '', by: 'claude', date: L.iso() });
+        let row = L.logError(Store.get('errors', L.errorId(i.type, wrote)), { type: i.type, wrote, correct: i.right || '', by: 'claude', date: L.iso() });
+        if (i.right) row = L.attachLesson(row, { wrong: wrote, right: i.right, rule: i.rule, explain: i.hint }, L.iso());
         Store.put('errors', row.id, row, true);
       }
       Store.put('sessions', sid, d, true);
@@ -2074,7 +2183,8 @@ function testResult(s) {
   kids.push(h('ol', { class: 'testres' }, r.map(i => h('li', { class: i.ok ? 'ok' : 'no' },
     h('span', { class: 'mark', 'aria-label': i.ok ? 'right' : 'wrong' }, i.ok ? '✓' : '✗'),
     h('span', null, h('span', { class: 'muted small' }, sents[i.n - 1]), h('br'), (s.data.answers || [])[i.n - 1] || '(blank)',
-      i.ok ? '' : [h('br'), h('span', { class: 'tag' }, i.type), ' ', h('span', { class: 'hint' }, i.hint)])))));
+      i.ok ? '' : [h('br'), h('span', { class: 'tag' }, i.type), ' ', h('span', { class: 'hint' }, i.hint),
+        i.right ? [h('br'), h('span', { class: 'good' }, 'Correct: ' + i.right)] : '', i.rule ? h('span', { class: 'rule' }, i.rule) : ''])))));
   if (s.kind === 'placement') {
     const f = L.flaggedAreas(r, AREAS);
     kids.push(h('p', null, h('strong', null, 'Areas to study: '), f.length ? f.map(id => areaById(id).name).join(', ') : 'none. Every area was right.'));
@@ -2086,12 +2196,12 @@ function drillMarkTask(sid) {
   const s = Store.get('sessions', sid);
   const text = s.kind === 'placement' ? (s.data.partB || '') : L.mainText(s);
   if (!text.trim()) return '';
-  if (s.reviewedAt) return h('div', { class: 'review done' }, h('strong', null, 'Marked by Claude'), ': ' + plural((s.marks || []).filter(m => m.by === 'claude').length, 'problem') + '. Fix each one yourself in Writing.');
+  if (s.reviewedAt) return h('div', { class: 'review done' }, h('strong', null, 'Marked by Claude'), ': ' + plural((s.marks || []).filter(m => m.by === 'claude').length, 'problem') + (tutorOn() ? '. Open it in Writing to try each fix and see the rule.' : '. Fix each one yourself in Writing.'));
   return claudeTask({
     key: 'drill-' + sid, label: s.kind === 'placement' ? 'Ask Claude to mark Part B' : 'Ask Claude to mark your imitations', busyText: 'Claude is reading your sentences…',
     intro: s.kind === 'placement' ? 'Part B: Claude points at the errors in your 5 sentences. Each one goes into your error log.' : 'Claude marks your imitation sentences. Every error goes into your error log. This does not use your weekly review.',
-    prompt: () => L.reviewPrompt(text, currentTop3(), ERROR_TYPES),
-    apply: raw => { if (!Array.isArray(raw)) return 'Claude’s reply could not be read. Try again.'; applyReview('sessions', sid, L.validateMarks(raw, text, ERROR_TYPES), 'drill'); return null; }
+    prompt: () => reviewPromptFor(text),
+    apply: raw => { if (!Array.isArray(raw)) return 'Claude’s reply could not be read. Try again.'; applyReview('sessions', sid, marksFrom(raw, text), 'drill'); return null; }
   });
 }
 
@@ -2243,7 +2353,7 @@ function render() {
   drawNav();
   if (Store.mode === 'loading') { view.replaceChildren(h('p', { class: 'muted pad' }, 'Opening your notebook…')); return; }
   if (!app()) { view.replaceChildren(onboarding()); drawStatus(); return; }
-  const fn = { today: viewToday, plan: viewPlan, writing: viewWriting, errors: viewErrors, progress: viewProgress, setup: viewSetup }[App.route] || viewToday;
+  const fn = { today: viewToday, plan: viewPlan, writing: viewWriting, errors: viewErrors, progress: viewProgress, setup: viewSetup, practice: viewPractice }[App.route] || viewToday;
   const y = window.scrollY;
   view.replaceChildren(fn());
   window.scrollTo(0, y);
@@ -2284,24 +2394,26 @@ function reviewBox(coll, id) {
   const text = targetText(coll, doc);
   if (doc.reviewedAt) {
     const n = (doc.marks || []).filter(m => m.by === 'claude').length;
-    return h('div', { class: 'review done' }, h('strong', null, 'Marked by Claude'), ' on ' + fmtDate(doc.reviewedAt) + ': ' + (n ? plural(n, 'problem') + '. Fix each one yourself below.' : 'no problems found.'));
+    return h('div', { class: 'review done' }, h('strong', null, 'Marked by Claude'), ' on ' + fmtDate(doc.reviewedAt) + ': ' + (n ? plural(n, 'problem') + (tutorOn() ? '. Try to fix each one below; then Claude’s answer and the rule appear.' : '. Fix each one yourself below.') : 'no problems found.'));
   }
   if (App.busy[id]) return h('div', { class: 'review busy' }, App.busy[id]);
   const left = reviewsLeft(), a = app();
-  const intro = h('p', null, 'Claude points at problems after the draft is done. It never rewrites anything, and you do the repair. ',
-    h('span', { class: 'muted' }, plural(a.reviewsPerWeek || 1, 'review') + ' a week; ' + left + ' left this week.'));
+  const intro = tutorOn()
+    ? h('p', null, 'Claude marks each mistake and says what is wrong. You try to fix it once, then Claude shows the correct version, the rule and two examples. Every mistake comes back in Fix-it practice.')
+    : h('p', null, 'Claude points at problems after the draft is done. It never rewrites anything, and you do the repair. ',
+      h('span', { class: 'muted' }, plural(a.reviewsPerWeek || 1, 'review') + ' a week; ' + left + ' left this week.'));
   if (!text.trim()) return '';
   if (left <= 0) return h('div', { class: 'review' }, intro, h('p', { class: 'muted small' }, 'This week’s review is used. Self-check this one, or change the number in Setup.'));
   if (App.sample) return h('div', { class: 'review' }, intro, h('button', { class: 'btn primary', onclick: () => claudeReview(coll, id) }, 'Ask Claude to mark it'));
   /* Outside the Claude viewer: copy a request, paste the reply. */
   const out = h('p', { class: 'muted small' });
   const ta = h('textarea', { class: 'sheet small', rows: 4, placeholder: 'Paste Claude’s reply here', 'aria-label': 'Claude reply' });
-  const prompt = L.reviewPrompt(text, currentTop3(), ERROR_TYPES);
+  const prompt = reviewPromptFor(text);
   return h('div', { class: 'review' }, intro,
     h('p', { class: 'small' }, window.desktop ? 'To get reviews here, add your Anthropic API key in Setup. Or copy the request into a Claude chat and paste the reply back.' : 'Claude is not reachable from this page here. Copy the request into a Claude chat, then paste the reply back.'),
     h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => copyText(prompt, out) }, 'Copy review request'), out), ta,
     h('button', { class: 'btn', onclick: () => {
-      const marks = L.parsePastedMarks(ta.value, text, ERROR_TYPES);
+      const marks = L.parsePastedMarks(ta.value, text, ERROR_TYPES, tutorOn());
       if (!marks) { out.textContent = 'No list of marks found in that reply. Paste the whole reply, including the [ ] brackets.'; return; }
       applyReview(coll, id, marks, 'paste');
     } }, 'Add the marks'));
@@ -2317,13 +2429,14 @@ function marksPanel(coll, id) {
   if (!marks.length) return '';
   const text = targetText(coll, doc);
   const fixed = marks.filter(m => m.fixed).length;
-  return h('div', { class: 'marks' }, h('h3', null, 'Marks ', h('span', { class: 'muted' }, fixed + ' of ' + marks.length + ' fixed')),
+  return h('div', { class: 'marks' }, h('h3', null, 'Marks ', h('span', { class: 'muted' }, fixed + ' of ' + marks.length + (marks.some(m => m.answer) ? ' done' : ' fixed'))),
     h('ol', null, marks.map((m, i) => {
       const sent = L.sentenceAround(text, m.at), k = sent.indexOf(m.quote);
       const before = k >= 0 ? sent.slice(0, k) : '', after = k >= 0 ? sent.slice(k + m.quote.length) : '';
       const cut = (s, end) => s.length <= 100 ? s : end ? s.slice(0, 100).replace(/\s\S*$/, '') + ' …' : '… ' + s.slice(-100).replace(/^\S*\s/, '');
       const ctx = k >= 0 ? [cut(before, false), h('mark', { class: 'mk ' + m.by }, m.quote), cut(after, true)] : ['“', m.quote, '”'];
       const key = id + ':' + i;
+      if (m.answer && m.by === 'claude') return tutorMark(coll, id, i, m, ctx, k >= 0 ? [cut(before, false), cut(after, true)] : null, key);
       const input = h('input', { type: 'text', 'aria-label': 'Your fix for mark ' + (i + 1), placeholder: 'Rewrite the marked words yourself', value: m.fix || '' });
       const canClaude = m.by === 'claude' && App.sample;
       return h('li', { class: m.fixed ? 'fixed' : '' },
@@ -2339,6 +2452,76 @@ function marksPanel(coll, id) {
           } }, canClaude ? 'Check my fix' : 'Save my fix')),
         m.lastHint ? h('p', { class: 'hint warn' }, 'Not yet (' + plural(m.tries, 'try') + '): ' + m.lastHint) : '');
     })));
+}
+
+/* Tutor mode mark: say what is wrong, one try, then the answer, the rule and examples. */
+function tutorMark(coll, id, i, m, ctx, around, key) {
+  const head = h('div', { class: 'mhead' }, h('span', { class: 'tag' }, m.type), h('span', { class: 'by' }, 'Claude'),
+    h('button', { class: 'icon', 'aria-label': 'Delete mark', onclick: () => removeMark(coll, id, i) }, '×'));
+  const kids = [head, h('p', { class: 'ctx' }, ctx), m.hint ? h('p', { class: 'hint' }, m.hint) : ''];
+  if (!m.shown) {
+    const input = h('input', { type: 'text', 'aria-label': 'Your fix for mark ' + (i + 1), placeholder: 'Rewrite the marked words', value: '' });
+    const go1 = () => { const v = input.value.trim(); if (v) tutorTry(coll, id, i, v); };
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') go1(); });
+    kids.push(App.busy[key] ? h('p', { class: 'muted small' }, App.busy[key]) :
+      h('div', { class: 'repair' }, input, h('button', { class: 'btn small', onclick: go1 }, 'Check'),
+        h('button', { class: 'btn small quiet', onclick: () => tutorTry(coll, id, i, null) }, 'Show me')));
+  } else {
+    const right = around ? [around[0], h('mark', { class: 'mk fixed' }, m.answer), around[1]] : [h('mark', { class: 'mk fixed' }, m.answer)];
+    kids.push(lessonBox({ ok: m.firstTry, tried: m.tried, right, rule: m.rule, examples: m.examples,
+      onSame: !m.firstTry && m.tried ? () => tutorCountRight(coll, id, i) : null }),
+      h('p', { class: 'muted small' }, 'This mistake comes back in Fix-it practice tomorrow.'));
+  }
+  return h('li', { class: 'tutor' + (m.shown ? ' fixed' : '') }, kids);
+}
+/* The result of one try: right or wrong, the correct version, the rule, examples. */
+function lessonBox(o) {
+  return h('div', { class: 'lesson' },
+    o.ok ? h('p', { class: 'good' }, '✓ Right: ', h('strong', null, o.tried)) :
+      o.tried ? h('p', { class: 'warn' }, '✗ Your try: ', o.tried, o.onSame ? [' ', h('button', { class: 'btn small quiet', onclick: o.onSame }, 'Mine means the same')] : '') :
+      h('p', { class: 'muted small' }, 'You asked to see it.'),
+    h('p', { class: 'right' }, h('strong', null, 'Correct: '), o.right),
+    o.rule ? h('p', { class: 'rule' }, h('strong', null, 'Rule: '), o.rule) : '',
+    o.examples && o.examples.length ? h('ul', { class: 'ex' }, o.examples.map(x => h('li', null, x))) : '');
+}
+
+/* ---------- Fix-it practice: old mistakes come back until they are right three times in a row ---------- */
+function startPractice() { App.prac = { ids: L.practiceDue(errorsList(), App.today).map(e => e.id), i: 0, result: null, right: 0, date: App.today }; go('practice'); }
+function practiceCard() {
+  const rows = errorsList().filter(e => e.lesson); if (!rows.length) return '';
+  const due = L.practiceDue(rows, App.today), learned = rows.filter(e => e.drill && e.drill.learned).length, nxt = L.nextPracticeDate(rows);
+  return card('practice', h('h3', null, 'Fix-it practice ', h('span', { class: 'muted' }, learned + ' of ' + rows.length + ' learned')),
+    due.length ? h('div', { class: 'opt' }, h('p', null, plural(due.length, 'old mistake') + ' to fix today, about ' + Math.max(2, Math.ceil(due.length / 2)) + ' min.'),
+      h('button', { class: 'btn primary', onclick: startPractice }, 'Start practice'))
+      : h('p', { class: 'muted small' }, nxt ? 'Nothing due today. Next: ' + fmtDate(nxt) + '.' : 'Every mistake so far is learned.'));
+}
+function viewPractice() {
+  const P = App.prac;
+  const back = h('button', { class: 'btn', onclick: () => { App.prac = null; go('today'); } }, 'Back to Today');
+  if (!P || P.date !== App.today) { startPractice(); return h('div'); }
+  const head = (n) => h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, 'Fix-it practice' + (n ? ' · ' + n : '')), h('h1', null, 'Fix the mistake'));
+  if (P.i >= P.ids.length) return h('div', { class: 'page' }, head(''),
+    card('', h('p', { class: 'lead' }, P.ids.length ? P.right + ' of ' + P.ids.length + ' right.' : 'Nothing is due today.'),
+      p('A mistake you get right three times in a row (after 1, 3 and 7 days) counts as learned. One you miss comes back tomorrow.', 'muted small'), back));
+  const row = Store.get('errors', P.ids[P.i]);
+  if (!row) { P.i++; return viewPractice(); }
+  const it = L.practiceItem(row);
+  const ta = h('textarea', { class: 'sheet small', rows: 3, 'aria-label': 'Your corrected sentence', spellcheck: false, autocapitalize: 'off', autocorrect: 'off' });
+  ta.value = it.wrong;
+  const kids = [h('p', null, h('span', { class: 'tag' }, row.type)), h('p', { class: 'ctx big' }, it.wrong)];
+  if (!P.result) {
+    kids.push(p('Edit the sentence so it is correct.', 'muted small'), ta,
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { const v = ta.value.trim(); if (!v) return; P.result = { tried: v, ok: L.sameText(v, it.right) }; render(); } }, 'Check'),
+        h('button', { class: 'btn quiet', onclick: () => { P.result = { tried: '', ok: false }; render(); } }, 'Show me')));
+  } else {
+    kids.push(lessonBox({ ok: P.result.ok, tried: P.result.tried, right: it.right, rule: row.lesson.rule, examples: row.lesson.examples,
+      onSame: !P.result.ok && P.result.tried ? () => { P.result.ok = true; render(); } : null }),
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => {
+        const r = Store.get('errors', row.id); if (r) Store.put('errors', r.id, L.gradePractice(r, P.result.ok, App.today), true);
+        if (P.result.ok) P.right++; P.i++; P.result = null; window.scrollTo(0, 0); render();
+      } }, P.i + 1 < P.ids.length ? 'Next' : 'Finish')));
+  }
+  return h('div', { class: 'page' }, head((P.i + 1) + ' of ' + P.ids.length), card('practice-item', kids));
 }
 
 /* The piece workspace, used in Writing and in a timed piece session. Draws itself so typing never re-renders the page. */
@@ -2460,7 +2643,7 @@ function viewToday() {
   return h('div', { class: 'page' },
     h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, fmtDate(today) + ' · Phase ' + a.phase + ', week ' + wk), h('h1', null, PHASES[a.phase].name), anchor),
     gap != null && gap >= 7 ? h('p', { class: 'alert' }, 'It has been ' + gap + ' days since your last session. The plan still works at 4 sessions a week; it fails at zero for two weeks.') : '',
-    offer, nextCard, foundations, h('div', { class: 'grid2' }, card('weekcard', h('h3', null, 'This week'), strip, h('p', { class: 'muted small' }, 'Claude reviews left this week: ' + reviewsLeft())), readCard), others);
+    offer, nextCard, practiceCard(), foundations, h('div', { class: 'grid2' }, card('weekcard', h('h3', null, 'This week'), strip, h('p', { class: 'muted small' }, tutorOn() ? 'Claude tutors every session you write.' : 'Claude reviews left this week: ' + reviewsLeft())), readCard), others);
 }
 
 /* ---------- Plan ---------- */
@@ -2606,10 +2789,11 @@ function viewErrors() {
       const row = L.logError(Store.get('errors', L.errorId(type.value, wrote.value)), { type: type.value, wrote: wrote.value, correct: corr.value, by: 'self', date: L.iso() });
       Store.put('errors', row.id, row);
     } }, 'Add'))),
-    h('div', { class: 'scroll' }, h('table', { class: 'tbl errors' }, h('thead', null, h('tr', null, ['Error type', 'What I wrote', 'Correct form', 'Times', 'Last', 'Found by', ''].map(x => h('th', null, x)))),
+    h('div', { class: 'scroll' }, h('table', { class: 'tbl errors' }, h('thead', null, h('tr', null, ['Error type', 'What I wrote', 'Correct form', 'Times', 'Last', 'Found by', 'Practice', ''].map(x => h('th', null, x)))),
       h('tbody', null, rows.map(r => h('tr', null, h('td', { class: 'ty' }, r.type), h('td', { class: 'wrote' }, r.wrote),
         h('td', { class: 'cor' }, h('input', { type: 'text', value: r.correct, 'aria-label': 'Correct form for ' + r.wrote, onchange: e => Store.put('errors', r.id, Object.assign(clone(r), { correct: e.target.value.trim() })) })),
         h('td', { class: 'n' }, r.dates.length), h('td', { class: 'last' }, fmtDate(r.dates[r.dates.length - 1])), h('td', { class: 'by' }, r.by === 'plan' ? 'plan' : r.by === 'claude' ? 'Claude' : r.by === 'ai' ? 'old app' : 'you'),
+        h('td', { class: 'pr' }, !r.drill ? '' : r.drill.learned ? '✓ learned' : r.drill.streak + ' of 3 right'),
         h('td', { class: 'del' }, h('button', { class: 'icon', 'aria-label': 'Delete row', onclick: () => Store.remove('errors', r.id) }, '×'))))))));
 }
 
@@ -2671,7 +2855,9 @@ function viewSetup() {
     card('', h('h3', null, 'Writing sessions'),
       tog('noDelete', 'No deleting during the timed write'),
       field('Longest pause that still counts as "without stopping"', sel('pauseLimit', [[30, '30 seconds'], [60, '1 minute'], [90, '90 seconds'], [120, '2 minutes']], true)),
-      field('Claude reviews per week', sel('reviewsPerWeek', [[1, '1 (the plan)'], [2, '2'], [3, '3']], true), 'Self-check comes first every time.'),
+      field('How Claude reviews', sel('feedback', [['tutor', 'Tutor: shows the fix after one try and teaches the rule'], ['marks', 'Marks only: points at problems, you find the fix']]),
+        'Tutor is for when you don’t know the rules yet. Marks only is the original plan, for later.'),
+      tutorOn() ? '' : field('Claude reviews per week', sel('reviewsPerWeek', [[1, '1 (the plan)'], [2, '2'], [3, '3']], true), 'Self-check comes first every time.'),
       tog('sound', 'Chime when a step’s time is up')),
     card('', h('h3', null, 'Phases 3 and 4'),
       field('Form', sel('form', Object.entries(FORMS).map(([k, f]) => [k, f.label + ' (' + f.min + '-' + f.max + ' words)'])), 'Pick one form for three months. If you can’t decide, start with essays.'),

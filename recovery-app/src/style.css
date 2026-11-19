@@ -312,3 +312,12 @@ body.in-focus { overflow: hidden; }
 .imit input { width: 100%; font: 16px var(--f-write); }
 .imit ul { margin: 0; padding-left: 18px; font-family: var(--f-write); }
 .areas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+
+/* Tutor mode and Fix-it practice */
+.lesson { margin-top: 8px; padding: 10px 12px; border-left: 3px solid var(--green); background: var(--green-soft); border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 6px; }
+.lesson p { margin: 0; } .lesson .right { font: 15px/1.5 var(--f-write); }
+.lesson .warn { color: var(--red); } .lesson .ex { margin: 0; padding-left: 20px; font: 14px/1.5 var(--f-write); color: var(--ink2); }
+.rule { display: block; font-size: 14px; }
+.ctx.big { font: 17px/1.55 var(--f-write); }
+.practice-item textarea { width: 100%; font: 16px/1.5 var(--f-write); }
+.tbl.errors td.pr { white-space: nowrap; font-size: 13px; }

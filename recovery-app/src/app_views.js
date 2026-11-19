@@ -13,7 +13,7 @@ function render() {
   drawNav();
   if (Store.mode === 'loading') { view.replaceChildren(h('p', { class: 'muted pad' }, 'Opening your notebook…')); return; }
   if (!app()) { view.replaceChildren(onboarding()); drawStatus(); return; }
-  const fn = { today: viewToday, plan: viewPlan, writing: viewWriting, errors: viewErrors, progress: viewProgress, setup: viewSetup }[App.route] || viewToday;
+  const fn = { today: viewToday, plan: viewPlan, writing: viewWriting, errors: viewErrors, progress: viewProgress, setup: viewSetup, practice: viewPractice }[App.route] || viewToday;
   const y = window.scrollY;
   view.replaceChildren(fn());
   window.scrollTo(0, y);
@@ -54,24 +54,26 @@ function reviewBox(coll, id) {
   const text = targetText(coll, doc);
   if (doc.reviewedAt) {
     const n = (doc.marks || []).filter(m => m.by === 'claude').length;
-    return h('div', { class: 'review done' }, h('strong', null, 'Marked by Claude'), ' on ' + fmtDate(doc.reviewedAt) + ': ' + (n ? plural(n, 'problem') + '. Fix each one yourself below.' : 'no problems found.'));
+    return h('div', { class: 'review done' }, h('strong', null, 'Marked by Claude'), ' on ' + fmtDate(doc.reviewedAt) + ': ' + (n ? plural(n, 'problem') + (tutorOn() ? '. Try to fix each one below; then Claude’s answer and the rule appear.' : '. Fix each one yourself below.') : 'no problems found.'));
   }
   if (App.busy[id]) return h('div', { class: 'review busy' }, App.busy[id]);
   const left = reviewsLeft(), a = app();
-  const intro = h('p', null, 'Claude points at problems after the draft is done. It never rewrites anything, and you do the repair. ',
-    h('span', { class: 'muted' }, plural(a.reviewsPerWeek || 1, 'review') + ' a week; ' + left + ' left this week.'));
+  const intro = tutorOn()
+    ? h('p', null, 'Claude marks each mistake and says what is wrong. You try to fix it once, then Claude shows the correct version, the rule and two examples. Every mistake comes back in Fix-it practice.')
+    : h('p', null, 'Claude points at problems after the draft is done. It never rewrites anything, and you do the repair. ',
+      h('span', { class: 'muted' }, plural(a.reviewsPerWeek || 1, 'review') + ' a week; ' + left + ' left this week.'));
   if (!text.trim()) return '';
   if (left <= 0) return h('div', { class: 'review' }, intro, h('p', { class: 'muted small' }, 'This week’s review is used. Self-check this one, or change the number in Setup.'));
   if (App.sample) return h('div', { class: 'review' }, intro, h('button', { class: 'btn primary', onclick: () => claudeReview(coll, id) }, 'Ask Claude to mark it'));
   /* Outside the Claude viewer: copy a request, paste the reply. */
   const out = h('p', { class: 'muted small' });
   const ta = h('textarea', { class: 'sheet small', rows: 4, placeholder: 'Paste Claude’s reply here', 'aria-label': 'Claude reply' });
-  const prompt = L.reviewPrompt(text, currentTop3(), ERROR_TYPES);
+  const prompt = reviewPromptFor(text);
   return h('div', { class: 'review' }, intro,
     h('p', { class: 'small' }, window.desktop ? 'To get reviews here, add your Anthropic API key in Setup. Or copy the request into a Claude chat and paste the reply back.' : 'Claude is not reachable from this page here. Copy the request into a Claude chat, then paste the reply back.'),
     h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => copyText(prompt, out) }, 'Copy review request'), out), ta,
     h('button', { class: 'btn', onclick: () => {
-      const marks = L.parsePastedMarks(ta.value, text, ERROR_TYPES);
+      const marks = L.parsePastedMarks(ta.value, text, ERROR_TYPES, tutorOn());
       if (!marks) { out.textContent = 'No list of marks found in that reply. Paste the whole reply, including the [ ] brackets.'; return; }
       applyReview(coll, id, marks, 'paste');
     } }, 'Add the marks'));
@@ -87,13 +89,14 @@ function marksPanel(coll, id) {
   if (!marks.length) return '';
   const text = targetText(coll, doc);
   const fixed = marks.filter(m => m.fixed).length;
-  return h('div', { class: 'marks' }, h('h3', null, 'Marks ', h('span', { class: 'muted' }, fixed + ' of ' + marks.length + ' fixed')),
+  return h('div', { class: 'marks' }, h('h3', null, 'Marks ', h('span', { class: 'muted' }, fixed + ' of ' + marks.length + (marks.some(m => m.answer) ? ' done' : ' fixed'))),
     h('ol', null, marks.map((m, i) => {
       const sent = L.sentenceAround(text, m.at), k = sent.indexOf(m.quote);
       const before = k >= 0 ? sent.slice(0, k) : '', after = k >= 0 ? sent.slice(k + m.quote.length) : '';
       const cut = (s, end) => s.length <= 100 ? s : end ? s.slice(0, 100).replace(/\s\S*$/, '') + ' …' : '… ' + s.slice(-100).replace(/^\S*\s/, '');
       const ctx = k >= 0 ? [cut(before, false), h('mark', { class: 'mk ' + m.by }, m.quote), cut(after, true)] : ['“', m.quote, '”'];
       const key = id + ':' + i;
+      if (m.answer && m.by === 'claude') return tutorMark(coll, id, i, m, ctx, k >= 0 ? [cut(before, false), cut(after, true)] : null, key);
       const input = h('input', { type: 'text', 'aria-label': 'Your fix for mark ' + (i + 1), placeholder: 'Rewrite the marked words yourself', value: m.fix || '' });
       const canClaude = m.by === 'claude' && App.sample;
       return h('li', { class: m.fixed ? 'fixed' : '' },
@@ -109,6 +112,76 @@ function marksPanel(coll, id) {
           } }, canClaude ? 'Check my fix' : 'Save my fix')),
         m.lastHint ? h('p', { class: 'hint warn' }, 'Not yet (' + plural(m.tries, 'try') + '): ' + m.lastHint) : '');
     })));
+}
+
+/* Tutor mode mark: say what is wrong, one try, then the answer, the rule and examples. */
+function tutorMark(coll, id, i, m, ctx, around, key) {
+  const head = h('div', { class: 'mhead' }, h('span', { class: 'tag' }, m.type), h('span', { class: 'by' }, 'Claude'),
+    h('button', { class: 'icon', 'aria-label': 'Delete mark', onclick: () => removeMark(coll, id, i) }, '×'));
+  const kids = [head, h('p', { class: 'ctx' }, ctx), m.hint ? h('p', { class: 'hint' }, m.hint) : ''];
+  if (!m.shown) {
+    const input = h('input', { type: 'text', 'aria-label': 'Your fix for mark ' + (i + 1), placeholder: 'Rewrite the marked words', value: '' });
+    const go1 = () => { const v = input.value.trim(); if (v) tutorTry(coll, id, i, v); };
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') go1(); });
+    kids.push(App.busy[key] ? h('p', { class: 'muted small' }, App.busy[key]) :
+      h('div', { class: 'repair' }, input, h('button', { class: 'btn small', onclick: go1 }, 'Check'),
+        h('button', { class: 'btn small quiet', onclick: () => tutorTry(coll, id, i, null) }, 'Show me')));
+  } else {
+    const right = around ? [around[0], h('mark', { class: 'mk fixed' }, m.answer), around[1]] : [h('mark', { class: 'mk fixed' }, m.answer)];
+    kids.push(lessonBox({ ok: m.firstTry, tried: m.tried, right, rule: m.rule, examples: m.examples,
+      onSame: !m.firstTry && m.tried ? () => tutorCountRight(coll, id, i) : null }),
+      h('p', { class: 'muted small' }, 'This mistake comes back in Fix-it practice tomorrow.'));
+  }
+  return h('li', { class: 'tutor' + (m.shown ? ' fixed' : '') }, kids);
+}
+/* The result of one try: right or wrong, the correct version, the rule, examples. */
+function lessonBox(o) {
+  return h('div', { class: 'lesson' },
+    o.ok ? h('p', { class: 'good' }, '✓ Right: ', h('strong', null, o.tried)) :
+      o.tried ? h('p', { class: 'warn' }, '✗ Your try: ', o.tried, o.onSame ? [' ', h('button', { class: 'btn small quiet', onclick: o.onSame }, 'Mine means the same')] : '') :
+      h('p', { class: 'muted small' }, 'You asked to see it.'),
+    h('p', { class: 'right' }, h('strong', null, 'Correct: '), o.right),
+    o.rule ? h('p', { class: 'rule' }, h('strong', null, 'Rule: '), o.rule) : '',
+    o.examples && o.examples.length ? h('ul', { class: 'ex' }, o.examples.map(x => h('li', null, x))) : '');
+}
+
+/* ---------- Fix-it practice: old mistakes come back until they are right three times in a row ---------- */
+function startPractice() { App.prac = { ids: L.practiceDue(errorsList(), App.today).map(e => e.id), i: 0, result: null, right: 0, date: App.today }; go('practice'); }
+function practiceCard() {
+  const rows = errorsList().filter(e => e.lesson); if (!rows.length) return '';
+  const due = L.practiceDue(rows, App.today), learned = rows.filter(e => e.drill && e.drill.learned).length, nxt = L.nextPracticeDate(rows);
+  return card('practice', h('h3', null, 'Fix-it practice ', h('span', { class: 'muted' }, learned + ' of ' + rows.length + ' learned')),
+    due.length ? h('div', { class: 'opt' }, h('p', null, plural(due.length, 'old mistake') + ' to fix today, about ' + Math.max(2, Math.ceil(due.length / 2)) + ' min.'),
+      h('button', { class: 'btn primary', onclick: startPractice }, 'Start practice'))
+      : h('p', { class: 'muted small' }, nxt ? 'Nothing due today. Next: ' + fmtDate(nxt) + '.' : 'Every mistake so far is learned.'));
+}
+function viewPractice() {
+  const P = App.prac;
+  const back = h('button', { class: 'btn', onclick: () => { App.prac = null; go('today'); } }, 'Back to Today');
+  if (!P || P.date !== App.today) { startPractice(); return h('div'); }
+  const head = (n) => h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, 'Fix-it practice' + (n ? ' · ' + n : '')), h('h1', null, 'Fix the mistake'));
+  if (P.i >= P.ids.length) return h('div', { class: 'page' }, head(''),
+    card('', h('p', { class: 'lead' }, P.ids.length ? P.right + ' of ' + P.ids.length + ' right.' : 'Nothing is due today.'),
+      p('A mistake you get right three times in a row (after 1, 3 and 7 days) counts as learned. One you miss comes back tomorrow.', 'muted small'), back));
+  const row = Store.get('errors', P.ids[P.i]);
+  if (!row) { P.i++; return viewPractice(); }
+  const it = L.practiceItem(row);
+  const ta = h('textarea', { class: 'sheet small', rows: 3, 'aria-label': 'Your corrected sentence', spellcheck: false, autocapitalize: 'off', autocorrect: 'off' });
+  ta.value = it.wrong;
+  const kids = [h('p', null, h('span', { class: 'tag' }, row.type)), h('p', { class: 'ctx big' }, it.wrong)];
+  if (!P.result) {
+    kids.push(p('Edit the sentence so it is correct.', 'muted small'), ta,
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { const v = ta.value.trim(); if (!v) return; P.result = { tried: v, ok: L.sameText(v, it.right) }; render(); } }, 'Check'),
+        h('button', { class: 'btn quiet', onclick: () => { P.result = { tried: '', ok: false }; render(); } }, 'Show me')));
+  } else {
+    kids.push(lessonBox({ ok: P.result.ok, tried: P.result.tried, right: it.right, rule: row.lesson.rule, examples: row.lesson.examples,
+      onSame: !P.result.ok && P.result.tried ? () => { P.result.ok = true; render(); } : null }),
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => {
+        const r = Store.get('errors', row.id); if (r) Store.put('errors', r.id, L.gradePractice(r, P.result.ok, App.today), true);
+        if (P.result.ok) P.right++; P.i++; P.result = null; window.scrollTo(0, 0); render();
+      } }, P.i + 1 < P.ids.length ? 'Next' : 'Finish')));
+  }
+  return h('div', { class: 'page' }, head((P.i + 1) + ' of ' + P.ids.length), card('practice-item', kids));
 }
 
 /* The piece workspace, used in Writing and in a timed piece session. Draws itself so typing never re-renders the page. */
@@ -230,7 +303,7 @@ function viewToday() {
   return h('div', { class: 'page' },
     h('header', { class: 'pagehead' }, h('p', { class: 'eyebrow' }, fmtDate(today) + ' · Phase ' + a.phase + ', week ' + wk), h('h1', null, PHASES[a.phase].name), anchor),
     gap != null && gap >= 7 ? h('p', { class: 'alert' }, 'It has been ' + gap + ' days since your last session. The plan still works at 4 sessions a week; it fails at zero for two weeks.') : '',
-    offer, nextCard, foundations, h('div', { class: 'grid2' }, card('weekcard', h('h3', null, 'This week'), strip, h('p', { class: 'muted small' }, 'Claude reviews left this week: ' + reviewsLeft())), readCard), others);
+    offer, nextCard, practiceCard(), foundations, h('div', { class: 'grid2' }, card('weekcard', h('h3', null, 'This week'), strip, h('p', { class: 'muted small' }, tutorOn() ? 'Claude tutors every session you write.' : 'Claude reviews left this week: ' + reviewsLeft())), readCard), others);
 }
 
 /* ---------- Plan ---------- */
@@ -376,10 +449,11 @@ function viewErrors() {
       const row = L.logError(Store.get('errors', L.errorId(type.value, wrote.value)), { type: type.value, wrote: wrote.value, correct: corr.value, by: 'self', date: L.iso() });
       Store.put('errors', row.id, row);
     } }, 'Add'))),
-    h('div', { class: 'scroll' }, h('table', { class: 'tbl errors' }, h('thead', null, h('tr', null, ['Error type', 'What I wrote', 'Correct form', 'Times', 'Last', 'Found by', ''].map(x => h('th', null, x)))),
+    h('div', { class: 'scroll' }, h('table', { class: 'tbl errors' }, h('thead', null, h('tr', null, ['Error type', 'What I wrote', 'Correct form', 'Times', 'Last', 'Found by', 'Practice', ''].map(x => h('th', null, x)))),
       h('tbody', null, rows.map(r => h('tr', null, h('td', { class: 'ty' }, r.type), h('td', { class: 'wrote' }, r.wrote),
         h('td', { class: 'cor' }, h('input', { type: 'text', value: r.correct, 'aria-label': 'Correct form for ' + r.wrote, onchange: e => Store.put('errors', r.id, Object.assign(clone(r), { correct: e.target.value.trim() })) })),
         h('td', { class: 'n' }, r.dates.length), h('td', { class: 'last' }, fmtDate(r.dates[r.dates.length - 1])), h('td', { class: 'by' }, r.by === 'plan' ? 'plan' : r.by === 'claude' ? 'Claude' : r.by === 'ai' ? 'old app' : 'you'),
+        h('td', { class: 'pr' }, !r.drill ? '' : r.drill.learned ? '✓ learned' : r.drill.streak + ' of 3 right'),
         h('td', { class: 'del' }, h('button', { class: 'icon', 'aria-label': 'Delete row', onclick: () => Store.remove('errors', r.id) }, '×'))))))));
 }
 
@@ -441,7 +515,9 @@ function viewSetup() {
     card('', h('h3', null, 'Writing sessions'),
       tog('noDelete', 'No deleting during the timed write'),
       field('Longest pause that still counts as "without stopping"', sel('pauseLimit', [[30, '30 seconds'], [60, '1 minute'], [90, '90 seconds'], [120, '2 minutes']], true)),
-      field('Claude reviews per week', sel('reviewsPerWeek', [[1, '1 (the plan)'], [2, '2'], [3, '3']], true), 'Self-check comes first every time.'),
+      field('How Claude reviews', sel('feedback', [['tutor', 'Tutor: shows the fix after one try and teaches the rule'], ['marks', 'Marks only: points at problems, you find the fix']]),
+        'Tutor is for when you don’t know the rules yet. Marks only is the original plan, for later.'),
+      tutorOn() ? '' : field('Claude reviews per week', sel('reviewsPerWeek', [[1, '1 (the plan)'], [2, '2'], [3, '3']], true), 'Self-check comes first every time.'),
       tog('sound', 'Chime when a step’s time is up')),
     card('', h('h3', null, 'Phases 3 and 4'),
       field('Form', sel('form', Object.entries(FORMS).map(([k, f]) => [k, f.label + ' (' + f.min + '-' + f.max + ' words)'])), 'Pick one form for three months. If you can’t decide, start with essays.'),

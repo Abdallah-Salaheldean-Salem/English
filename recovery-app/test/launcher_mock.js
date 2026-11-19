@@ -11,7 +11,7 @@ function fakeClaude(prompt) {
   if (prompt.startsWith('A learner wrote')) return prompt.includes('with: "I go"') ? '{"ok": true, "hint": ""}' : 'Here: {"ok": false, "hint": "Who is doing the action?"}';
   const a = prompt.indexOf('Draft:\n"""\n') + 11, b = prompt.indexOf('\n"""', a);
   const q = prompt.slice(a, b).split(' ').slice(0, 2).join(' ');
-  return 'Marks:\n' + FENCE + 'json\n' + JSON.stringify([{ quote: q, type: 'Subject-verb agreement', hint: 'Who is the subject?', note: 'The verb agrees with its subject.' }]) + '\n' + FENCE;
+  return 'Marks:\n' + FENCE + 'json\n' + JSON.stringify([{ quote: q, type: 'Subject-verb agreement', hint: 'Who is the subject?', note: 'The verb agrees with its subject.', answer: 'I go', explain: 'I does not take goes.', rule: 'With I, use go.', examples: ['I go home.', 'I work here.'], practice: [{ wrong: 'I runs fast.', right: 'I run fast.' }, { wrong: 'I has a board.', right: 'I have a board.' }] }]) + '\n' + FENCE;
 }
 /* Serves pwa/ as GitHub Pages would. */
 function startStatic(port, dir) {
@@ -33,7 +33,7 @@ function start(port, token) {
     if (prompt.startsWith('A learner wrote')) return prompt.includes('with: "I go"') ? '{"ok": true, "hint": ""}' : 'Here: {"ok": false, "hint": "Who is doing the action?"}';
     const a = prompt.indexOf('Draft:\n"""\n') + 11, b = prompt.indexOf('\n"""', a);
     const q = prompt.slice(a, b).split(' ').slice(0, 2).join(' ');
-    return 'Marks:\n' + FENCE + 'json\n' + JSON.stringify([{ quote: q, type: 'Subject-verb agreement', hint: 'Who is the subject?', note: 'The verb agrees with its subject.' }]) + '\n' + FENCE;
+    return 'Marks:\n' + FENCE + 'json\n' + JSON.stringify([{ quote: q, type: 'Subject-verb agreement', hint: 'Who is the subject?', note: 'The verb agrees with its subject.', answer: 'I go', explain: 'I does not take goes.', rule: 'With I, use go.', examples: ['I go home.', 'I work here.'], practice: [{ wrong: 'I runs fast.', right: 'I run fast.' }, { wrong: 'I has a board.', right: 'I have a board.' }] }]) + '\n' + FENCE;
   };
   const server = http.createServer(async (req, res) => {
     const u = new URL(req.url, 'http://localhost'), pre = '/' + token + '/';
