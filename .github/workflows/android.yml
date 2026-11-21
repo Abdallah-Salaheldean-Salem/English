@@ -1,9 +1,10 @@
 # Builds the Android app (recovery-app/android) from the phone page and publishes the APK as a release.
-# Download link for the newest build:
-#   https://github.com/Abdallah-Salaheldean-Salem/English/releases/latest/download/EnglishWritingRecovery.apk
+# Download link for the newest build (the android-download branch holds only that file):
+#   https://github.com/Abdallah-Salaheldean-Salem/English/raw/refs/heads/android-download/EnglishWritingRecovery.apk
 # Signing: repository secrets ANDROID_KEYSTORE_B64 (the .jks file, base64) and ANDROID_KEYSTORE_PASS.
 # Every release must be signed with the same key, or Android refuses to install it over the old one.
-# Without the secrets the APK is built and left unsigned in a draft release, to be signed by hand.
+# Without the secrets the APK is built and left unsigned in a draft release; recovery-app/tools/apk_sign_v2.py
+# signs it with the same key, and the signed file goes on the android-download branch by hand.
 name: Android app
 
 on:
@@ -71,6 +72,12 @@ jobs:
             --target "${{ github.sha }}" --latest \
             --title "English Writing for Android (build ${{ github.run_number }})" \
             --notes "Open this page on the phone and tap EnglishWritingRecovery.apk to download it, then open the file and allow the install. A newer build installs over the old one and keeps your practice data."
+          # Same file on the download branch, so the one link above always gets the newest build.
+          D=$(mktemp -d); cp EnglishWritingRecovery.apk "$D"/; cd "$D"
+          printf '# English Writing for Android\n\nNewest signed build: %s (run %s). Open EnglishWritingRecovery.apk on the phone and allow the install.\n' "${{ github.sha }}" "${{ github.run_number }}" > README.md
+          git init -q -b android-download && git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Android app build ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" android-download
 
       - name: Hand over the unsigned build
         # Without the secrets the APK goes into a draft release (visible only to the repo's owner and
