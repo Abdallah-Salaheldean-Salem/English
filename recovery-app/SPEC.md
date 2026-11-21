@@ -99,10 +99,19 @@ Keep `logic.js`, `migrate.js` and the contracts unchanged. Replace `store.js` wi
 ### Touch and phone layout (all builds)
 Tap targets of at least 44 px on touch screens, 16 px form text (no zoom on focus in iPhone Safari), hover styles only where a real pointer exists, the session screen sized to the visible viewport (`--vvh`) so its footer sits above the keyboard, the tab bar hidden while typing and restored 350 ms after focus leaves (so a tap never lands on a shifted layout), and the error log as cards below 600 px.
 
+## Android app **(v4)**
+`android/` is a small Android project (Java, no framework, `androidx.webkit` only) that runs the phone build's page offline in a WebView. Package `io.github.abdallahsalem.ewr`, label "English Writing", minSdk 24, targetSdk 34.
+- `MainActivity.java`: serves `assets/www/` through `WebViewAssetLoader` at `https://appassets.androidplatform.net/assets/www/index.html`, a fixed https origin, so IndexedDB (the practice data) persists and the Anthropic call works. It opens other links in the browser, implements the file picker for Import, saves backups into Downloads through `window.AndroidBridge.saveFile(name, text)` (returns where it went, or "" on failure), and maps Back to page history. Android backup and phone-to-phone transfer include the app data.
+- `pwa_bridge.js`: with `window.AndroidBridge` present, `saveFile` uses it and no service worker is registered. Otherwise unchanged.
+- Build: `.github/workflows/android.yml` on GitHub (the build machine cannot reach Google's Maven): `build.py`, copy `pwa/` into `assets/www/`, `gradle assembleRelease` (AGP 8.5.2, Gradle 8.7, JDK 17), then a GitHub release `android-<run>` with `EnglishWritingRecovery.apk`. versionCode = run number, so every build installs over the last. Download: `releases/latest/download/EnglishWritingRecovery.apk`.
+- Signing: secrets `ANDROID_KEYSTORE_B64` and `ANDROID_KEYSTORE_PASS` (alias `ewr`). Without them the APK is built as a check and not published. The key lives only on the owner's PC (`E\artifact\android-signing\`) and in those secrets; losing it means uninstalling to update.
+- `test/android_page.js`: the page at phone size with a mocked `AndroidBridge` (export through the bridge, failed save reported, no service worker).
+
 ## Build and test
 ```
 python3 build.py          # writes dist/english-writing-recovery.html
 node test/test_logic.js   # 21 groups: dates, queue, gates, pieces, error log, review validation, import
+node test/android_page.js # the page as the Android app runs it
 node test/e2e.js          # every flow in four modes (browser-only, Claude viewer, PC launcher, phone app at iPhone size), plus phone app install and offline open
 python3 tools/make_icons.py   # only when the icon changes
 desktop\build.cmd         # on Windows: compiles desktop\EnglishWritingRecovery.exe

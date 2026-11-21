@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and newer: keep the practice data when moving to a new phone. -->
+<data-extraction-rules>
+    <cloud-backup><include domain="root" path="." /></cloud-backup>
+    <device-transfer><include domain="root" path="." /></device-transfer>
+</data-extraction-rules>
