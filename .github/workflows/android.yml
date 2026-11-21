@@ -3,7 +3,7 @@
 #   https://github.com/Abdallah-Salaheldean-Salem/English/releases/latest/download/EnglishWritingRecovery.apk
 # Signing: repository secrets ANDROID_KEYSTORE_B64 (the .jks file, base64) and ANDROID_KEYSTORE_PASS.
 # Every release must be signed with the same key, or Android refuses to install it over the old one.
-# Without the secrets the APK is still built (as a check) but not published.
+# Without the secrets the APK is built and left unsigned in a draft release, to be signed by hand.
 name: Android app
 
 on:
@@ -72,10 +72,13 @@ jobs:
             --title "English Writing for Android (build ${{ github.run_number }})" \
             --notes "Open this page on the phone and tap EnglishWritingRecovery.apk to download it, then open the file and allow the install. A newer build installs over the old one and keeps your practice data."
 
-      - name: Keep the unsigned build as a check
+      - name: Hand over the unsigned build
+        # Without the secrets the APK goes into a draft release (visible only to the repo's owner and
+        # collaborators), so it can be signed elsewhere with the same key and published by hand.
         if: env.SIGNED != '1'
-        uses: actions/upload-artifact@v4
-        with:
-          name: unsigned-apk
-          path: recovery-app/android/app/build/outputs/apk/release/*.apk
-          retention-days: 7
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp recovery-app/android/app/build/outputs/apk/release/app-release-unsigned.apk EnglishWritingRecovery-unsigned.apk
+          gh release create "unsigned-${{ github.run_number }}" EnglishWritingRecovery-unsigned.apk --draft \
+            --target "${{ github.sha }}" --title "Unsigned build ${{ github.run_number }}" --notes "Not installable: sign with the ewr key first."
