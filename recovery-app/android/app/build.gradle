@@ -1,0 +1,39 @@
+plugins { id 'com.android.application' }
+
+/* The GitHub workflow passes the run number (version) and the signing key; a local build gets version 1 and no key. */
+def run = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+def keystore = System.getenv('EWR_KEYSTORE')
+
+android {
+    namespace 'io.github.abdallahsalem.ewr'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'io.github.abdallahsalem.ewr'
+        minSdk 24
+        targetSdk 34
+        versionCode run
+        versionName "4.${run}"
+    }
+    signingConfigs {
+        release {
+            if (keystore) {
+                storeFile file(keystore)
+                storePassword System.getenv('EWR_KEYSTORE_PASS')
+                keyAlias 'ewr'
+                keyPassword System.getenv('EWR_KEYSTORE_PASS')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (keystore) signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies { implementation 'androidx.webkit:webkit:1.11.0' }

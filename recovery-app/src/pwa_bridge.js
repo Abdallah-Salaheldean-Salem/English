@@ -1,6 +1,7 @@
 /* pwa_bridge.js: phone app build only (pwa/). Defines window.desktop on the phone itself:
    documents in IndexedDB (persistent storage requested), Claude through the person's own Anthropic API key
    called directly from the phone, and backups through the share sheet or a download.
+   The Android app (android/) runs this same page in a WebView and adds window.AndroidBridge for saving files.
    desktop_shim.js then maps window.desktop onto window.claude.use(), so the app code is unchanged. */
 'use strict';
 (() => {
@@ -58,6 +59,8 @@
     },
     /* Share sheet where the phone offers one (save to Files or Drive, send to yourself); a download otherwise. */
     saveFile: async (name, contents) => {
+      /* Android app: the app saves the file into Downloads itself. */
+      if (window.AndroidBridge) { const r = window.AndroidBridge.saveFile(name, contents); if (!r) throw new Error('The backup could not be saved.'); return r; }
       const file = new File([contents], name, { type: 'application/json' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try { await navigator.share({ files: [file], title: name }); return 'the place you picked'; }
@@ -74,7 +77,8 @@
   /* Ask the browser not to clear this app's storage under pressure (installed apps usually get it). */
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* best effort */ }
   /* Offline use and installability. */
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  /* Not in the Android app: its files are already on the phone. */
+  if (!window.AndroidBridge && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
   }
 })();
